@@ -4,7 +4,7 @@
 %
 % First Created 13/02/2019
 %
-% Current version = v1.0
+% Current version = v1.1
 %
 % Carries out regression analysis over a specified time interval for
 % clustered independent components. Since multiple components can be
@@ -103,7 +103,8 @@
 % UPDATE HISTORY:
 %
 % 13/02/2019 (v1.0) -   V1.0 Created.
-%
+% 04/03/2019 (V1.1) -   If averaging over latency, will print out output.
+% 
 % ======================================================================= %
 
 function OUTPUT = clusterCovar(STUDY,ALLEEG,behaviouralData,clusters,varargin)
@@ -117,7 +118,7 @@ OUTPUT = [];
 varInput = [];
 for iVar = 1:2:length(varargin)
     varInput = setfield(varInput, varargin{iVar}, varargin{iVar+1});
-end;
+end
 if ~isfield(varInput, 'Latency'), varInput.Latency = []; end
 if ~isfield(varInput, 'AverageConditions'), varInput.AverageConditions = []; end
 if ~isfield(varInput, 'Regression'), varInput.Regression = 1; end
@@ -200,7 +201,7 @@ if length(behaviouralData) > 1
         for iCond = 1:length(FUNCLOOP.fieldNames{TEMP.combos(iCombo,1)})
             if ~any(strcmp(FUNCLOOP.fieldNames{TEMP.combos(iCombo,1)}{iCond},FUNCLOOP.fieldNames{TEMP.combos(iCombo,2)}))
                 disp(['Condition in Predictor ' num2str(TEMP.combos(iCombo,1)) ' Not Found in Predictor ' num2str(TEMP.combos(iCombo,2)) '; ' FUNCLOOP.fieldNames{TEMP.combos(iCombo,1)}{iCond}])
-                TEMP.error = 1
+                TEMP.error = 1;
             end
         end
         if FUNCLOOP.conditionIndices{TEMP.combos(iCombo,1)} ~= FUNCLOOP.conditionIndices{TEMP.combos(iCombo,2)}
@@ -616,8 +617,8 @@ for iCluster = clusters
             
         end
         
-        STATS.legend(1) = plot(NaN,NaN,'red')
-        STATS.legend(2) = plot(NaN,NaN,'green')
+        STATS.legend(1) = plot(NaN,NaN,'red');
+        STATS.legend(2) = plot(NaN,NaN,'green');
         legend(STATS.legend,{'Non-Sig (P > 0.05)' 'Sig (P <= 0.05)'})
         
         set(gca,'XTick',1:length(FUNCFORLOOP.conditionsToAnalyse))
@@ -699,6 +700,26 @@ for iCluster = clusters
             
         else
             disp('Cannot Plot More than 3 Vars; Skipping')
+        end
+        
+        % We will want to extract the regression output and print it to the
+        % command window.
+        
+        disp(' ')
+        disp('==============================================')
+        disp('Regression Output')
+        disp(['Cluster = ' num2str(iCluster) '; ' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(1)) '-' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(end)) ' ms'])
+        disp('==============================================')
+        disp(' ')
+        for iCond = 1:length(FUNCLOOP.fieldNames_Master)
+            MODEL = [];
+            MODEL.currentCond = FUNCLOOP.fieldNames_Master{iCond};
+            MODEL.lm = FUNCFORLOOP.clusterR2.lm{1}.(MODEL.currentCond);
+            MODEL.RSq = MODEL.lm.Rsquared.Ordinary;
+            MODEL.RSqAdj = MODEL.lm.Rsquared.Adjusted;
+            MODEL.Beta = MODEL.lm.Coefficients.Estimate(end);
+            MODEL.PVal = MODEL.lm.Coefficients.pValue(end);
+            disp([MODEL.currentCond '; Beta = ' num2str(round(MODEL.Beta,4)) '; R^2 = ' num2str(round(MODEL.RSq,2)) ' (Adj = ' num2str(round(MODEL.RSqAdj,2)) ') P = ' num2str(round(MODEL.PVal,3))])
         end
         
     else
