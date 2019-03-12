@@ -4,7 +4,7 @@
 %
 % First Created 13/02/2019
 %
-% Current version = v1.1
+% Current version = v1.2
 %
 % Carries out regression analysis over a specified time interval for
 % clustered independent components. Since multiple components can be
@@ -104,6 +104,7 @@
 %
 % 13/02/2019 (v1.0) -   V1.0 Created.
 % 04/03/2019 (V1.1) -   If averaging over latency, will print out output.
+% 08/03/2019 (V1.2) -   Now prints full ANOVA results.
 % 
 % ======================================================================= %
 
@@ -719,7 +720,14 @@ for iCluster = clusters
             MODEL.RSqAdj = MODEL.lm.Rsquared.Adjusted;
             MODEL.Beta = MODEL.lm.Coefficients.Estimate(end);
             MODEL.PVal = MODEL.lm.Coefficients.pValue(end);
-            disp([MODEL.currentCond '; Beta = ' num2str(round(MODEL.Beta,4)) '; R^2 = ' num2str(round(MODEL.RSq,2)) ' (Adj = ' num2str(round(MODEL.RSqAdj,2)) ') P = ' num2str(round(MODEL.PVal,3))])
+            MODEL.anova.summary = anova(MODEL.lm,'summary');
+            MODEL.anova.DF = MODEL.anova.summary({'Model' 'Total'},:).DF';
+            MODEL.anova.F = MODEL.anova.summary('Model',:).F;
+            MODEL.anova.P = MODEL.anova.summary('Model',:).pValue;
+            disp(MODEL.currentCond)
+            disp(['Beta = ' num2str(round(MODEL.Beta,4)) '; R^2 = ' num2str(round(MODEL.RSq,2)) ' (Adj = ' num2str(round(MODEL.RSqAdj,2)) ') P = ' num2str(round(MODEL.PVal,3))])
+            disp(['ANOVA; F(' num2str(MODEL.anova.DF(1)) ',' num2str(MODEL.anova.DF(2)) ') = ' num2str(round(MODEL.anova.F,4)) ', P = ' num2str(round(MODEL.anova.P,4))])
+            disp(' ')
         end
         
     else
