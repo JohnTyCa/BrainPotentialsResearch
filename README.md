@@ -1,5 +1,7 @@
 # LabScripts
 
+MATLAB
+
 This is a repository including a set of MATLAB functions for carrying out a variety of tasks:
 
 1) Cogent
@@ -25,6 +27,12 @@ Note that optional argument inputs into functions follow the following format:
 exampleFunction(MandatoryArgument1,MandatoryArgument2, ... 
                 'OptionalArgument1',OptionalArgument1_Value, ...
                 'OptionalArgument2',OptionalArgument2_Value);
+                
+CorelScript
+
+Also inclues some very basic functions for batch processing of images in CorelPhoto, for example, cropping images, squaring them, resizing to fixed width/height (cm / pixels).
+
+Other
                 
 In the future, I will include any functions that are written in:
 
