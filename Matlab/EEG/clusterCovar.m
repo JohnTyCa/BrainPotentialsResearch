@@ -4,7 +4,7 @@
 %
 % First Created 13/02/2019
 %
-% Current version = v1.2
+% Current version = v1.4
 %
 % Carries out regression analysis over a specified time interval for
 % clustered independent components. Since multiple components can be
@@ -68,6 +68,13 @@
 % PValYAxis             -   The range of P-Values to visualize when
 %                           plotting P-Values over latencies. 
 %                           (DEFAULT: 0.05)
+% PlotSave              -   Directory to save each plot to. (DEFAULT: [])
+% StanardizeData        -   Standardize data to z-scores. (DEFAULT: 0)
+% ExtractCovariateData  -   Whether to extract the covariate data only for
+%                           analysis elsewhere. This will organise the data
+%                           into columns representing either the covariate
+%                           or the dependent variable for each level of the
+%                           independent variable. (DEFAULT: 0)
 % 
 % ======================================================================= %
 % Outputs:
@@ -105,6 +112,11 @@
 % 13/02/2019 (v1.0) -   V1.0 Created.
 % 04/03/2019 (V1.1) -   If averaging over latency, will print out output.
 % 08/03/2019 (V1.2) -   Now prints full ANOVA results.
+% 13/03/2019 (V1.3) -   Ability to save plots.
+%                       Ability to standardize data (z-score).
+% 22/03/2019 (V1.4) -   Will save plots to individual file.
+%                   -   Will extract the covariate data into a variable, or
+%                       save it to a .txt and .csv file.
 % 
 % ======================================================================= %
 
@@ -129,6 +141,10 @@ if ~isfield(varInput, 'PredictorNames'), varInput.PredictorNames = {}; end
 if ~isfield(varInput, 'ResponseName'), varInput.ResponseName = {}; end
 if ~isfield(varInput, 'ForceStudyCond'), varInput.ForceStudyCond = 0; end
 if ~isfield(varInput, 'PValYAxis'), varInput.PValYAxis = 0.05; end
+if ~isfield(varInput, 'PlotSave'), varInput.PlotSave = []; end
+if ~isfield(varInput, 'StandardizeData'), varInput.StandardizeData = 0; end
+if ~isfield(varInput, 'ExtractCovariateData'), varInput.ExtractCovariateData = 0; end
+if ~isfield(varInput, 'ExtractCovariateData_Save'), varInput.ExtractCovariateData_Save = []; end
 
 % ======================================================================= %
 % If ForceStudyCond, Rename STUDY.condition Variables to Behavioural Data
@@ -217,6 +233,28 @@ if length(behaviouralData) > 1
 end
 FUNCLOOP.fieldNames_Master = FUNCLOOP.fieldNames{1};
 FUNCLOOP.conditionIndices_Master = FUNCLOOP.conditionIndices{1};
+
+% ======================================================================= %
+% Standardize the data (if applicable).
+% ======================================================================= %
+
+if varInput.StandardizeData
+    for iPredictor = 1:length(behaviouralData)
+        TEMP = [];
+        TEMP.currentData = behaviouralData{iPredictor};
+        TEMP.originalSize = size(TEMP.currentData);
+        TEMP.newData = reshape(table2array(TEMP.currentData),TEMP.originalSize(1)*TEMP.originalSize(2),1);
+        TEMP.zScore = zscore(TEMP.newData);
+        TEMP.newData2 = reshape(TEMP.zScore,TEMP.originalSize(1),TEMP.originalSize(2));
+        TEMP.newData2 = array2table(TEMP.newData2);
+        TEMP.newData2.Properties.VariableNames = TEMP.currentData.Properties.VariableNames;
+        behaviouralData{iPredictor} = TEMP.newData2;
+    end
+else
+    if length(behaviouralData) > 1
+        warning('Multiple regression detected and stanardization not requested. Either stanardize data beforehand, input StandardizeData parameter, or take caution with interpreting interaction terms!')
+    end
+end
 
 % ======================================================================= %
 % We Run a Loop for All Clusters Input.
@@ -320,7 +358,13 @@ for iCluster = clusters
                 FUNCLOOP.clusterData.behaviouralData{clusterCount,1}(:,iAverage,iPredictor) = FUNCFORLOOP2.currentData_Behav(:,iPredictor);
             end
             
-            FUNCLOOP.clusterData.(FUNCFORLOOP2.newCondName){clusterCount,1} = FUNCFORLOOP2.currentData_IC;
+            try
+                FUNCLOOP.clusterData.(FUNCFORLOOP2.newCondName){clusterCount,1} = FUNCFORLOOP2.currentData_IC;
+            catch
+                warning(['Invalid variable name (' FUNCFORLOOP2.newCondName ') - likely too long, using default name.']);
+                FUNCFORLOOP2.newCondName = ['AveragedCondition_' nDigitString(iAverage,2)];
+                FUNCLOOP.clusterData.(FUNCFORLOOP2.newCondName){clusterCount,1} = FUNCFORLOOP2.currentData_IC;
+            end
             
             FUNCFORLOOP.conditionsToAnalyse{iAverage} = FUNCFORLOOP2.newCondName;
             
@@ -335,7 +379,115 @@ for iCluster = clusters
     
     FUNCFORLOOP.clusterR2 = table();
     
-    if ~varInput.AverageOverLatency
+    if varInput.AverageOverLatency | varInput.ExtractCovariateData
+        
+        % Secondly, if we do want to average over the latency and produce
+        % a single linear model.
+        
+        % Current time point to plot.
+        
+        FUNCFORLOOP.clusterR2.latency = {FUNCFORLOOP.erpTimes_ToPlot};
+        FUNCFORLOOP.clusterR2.latencySync = {FUNCFORLOOP.erpTimes_ToPlotSync};
+        
+        % Extract the behavioural data and cluster activation for the
+        % corresponding time point.
+        
+        FUNCFORLOOP.clusterR2.ICData = {table()};
+        FUNCFORLOOP.clusterR2.BehavData = {table()};
+        for iCond = 1:length(FUNCFORLOOP.conditionsToAnalyse)
+            FUNCFORLOOP.averagePlot.currentData_IC(:,iCond) = squeeze(mean(FUNCLOOP.clusterData.(FUNCFORLOOP.conditionsToAnalyse{iCond}){clusterCount}(FUNCFORLOOP.clusterR2.latency{1},:),1));
+            FUNCFORLOOP.averagePlot.currentData_Behav(:,iCond,:) = FUNCLOOP.clusterData.behaviouralData{clusterCount,1}(:,iCond,:);
+            FUNCFORLOOP.clusterR2.ICData{1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = FUNCFORLOOP.averagePlot.currentData_IC(:,iCond);
+            FUNCFORLOOP.clusterR2.BehavData{1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = squeeze(FUNCFORLOOP.averagePlot.currentData_Behav(:,iCond,:));
+        end
+        
+        % Regression or correlation, depending on varargin input.
+        
+        if ~varInput.ExtractCovariateData
+            
+            if varInput.Regression
+                FUNCFORLOOP.clusterR2.lm = {table()};
+                FUNCFORLOOP.clusterR2.RSqAdj = {table()};
+                FUNCFORLOOP.clusterR2.PVal = {table()};
+                for iCond = 1:length(FUNCFORLOOP.conditionsToAnalyse)
+                    
+                    % Produce table that contains the predictors and response
+                    % variables, aswell as the formula we will use for the
+                    % model.
+                    
+                    STATS = [];
+                    
+                    STATS.statTable = table();
+                    
+                    if isempty(varInput.ResponseName)
+                        STATS.formula = 'y~';
+                    else
+                        STATS.formula = [varInput.ResponseName '~'];
+                    end
+                    
+                    if isempty(varInput.PredictorNames)
+                        for iPredictor = 1:size(FUNCFORLOOP.averagePlot.currentData_Behav,3)
+                            STATS.statTable.(['x' num2str(iPredictor)]) = squeeze(FUNCFORLOOP.averagePlot.currentData_Behav(:,iCond,iPredictor));
+                            STATS.formula = [STATS.formula 'x' num2str(iPredictor) '+'];
+                        end
+                    else
+                        for iPredictor = 1:size(FUNCFORLOOP.averagePlot.currentData_Behav,3)
+                            STATS.statTable.(varInput.PredictorNames{iPredictor}) = squeeze(FUNCFORLOOP.averagePlot.currentData_Behav(:,iCond,iPredictor));
+                            STATS.formula = [STATS.formula varInput.PredictorNames{iPredictor} '+'];
+                        end
+                    end
+                    
+                    STATS.formula(end) = [];
+                    if size(FUNCFORLOOP.averagePlot.currentData_Behav,3) > 1
+                        for iMulti = 2:size(FUNCFORLOOP.averagePlot.currentData_Behav,3)
+                            STATS.combos = nchoosek(1:size(FUNCFORLOOP.averagePlot.currentData_Behav,3),iMulti);
+                            for iCombo = 1:size(STATS.combos,1)
+                                TEMP = {};
+                                TEMP.count = 0;
+                                for iIV = STATS.combos(iCombo,:)
+                                    TEMP.count = TEMP.count + 1;
+                                    if isempty(varInput.PredictorNames)
+                                        TEMP.varsToJoin{TEMP.count} = ['x' num2str(iIV)];
+                                    else
+                                        TEMP.varsToJoin{TEMP.count} = varInput.PredictorNames{iIV};
+                                    end
+                                end
+                                TEMP.varsToJoin = strjoin(TEMP.varsToJoin,':');
+                                STATS.formula = [STATS.formula '+' TEMP.varsToJoin];
+                            end
+                        end
+                    end
+                    
+                    if isempty(varInput.ResponseName)
+                        STATS.statTable.y = FUNCFORLOOP.averagePlot.currentData_IC(:,iCond);
+                    else
+                        STATS.statTable.(varInput.ResponseName) = FUNCFORLOOP.averagePlot.currentData_IC(:,iCond);
+                    end
+                    
+                    % Fit the model.
+                    
+                    STATS.lm = fitlm(STATS.statTable,STATS.formula);
+                    
+                    FUNCFORLOOP.clusterR2.lm{1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = STATS.lm;
+                    FUNCFORLOOP.clusterR2.RSqAdj{1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = STATS.lm.Rsquared.Ordinary;
+                    FUNCFORLOOP.clusterR2.PVal{1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = STATS.lm.Coefficients.pValue(end);
+                    
+                    %                 [~,FUNCFORLOOP.clusterR2.(FUNCFORLOOP.conditionsToAnalyse{iCond})] = linearRegression(FUNCFORLOOP.averagePlot.currentData_IC(iCond,:),FUNCFORLOOP.averagePlot.currentData_Behav(iCond,:));
+                end
+                
+                FUNCFORLOOP.clusterR2.formula = STATS.formula;
+                
+            else
+                for iCond = 1:length(FUNCFORLOOP.conditionsToAnalyse)
+                    FUNCFORLOOP2 = [];
+                    FUNCFORLOOP2.corr = corrcoef(FUNCFORLOOP.averagePlot.currentData_Behav(iCond,:),FUNCFORLOOP.averagePlot.currentData_IC(iCond,:));
+                    FUNCFORLOOP.clusterR2.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = FUNCFORLOOP2.corr(1,2);
+                end
+            end
+            
+        end
+        
+    else
         
         % First, if we do not want to average over the latency and produce
         % multple linear models.
@@ -347,7 +499,7 @@ for iCluster = clusters
         
         for iTime = 1:length(FUNCFORLOOP.erpTimes_ToPlot)
             
-         
+            
             timeCount = timeCount + 1;
             
             FUNCFORLOOP2 = [];
@@ -438,12 +590,12 @@ for iCluster = clusters
                     STATS.lm = fitlm(STATS.statTable,STATS.formula);
                     
                     FUNCFORLOOP.clusterR2.lm{timeCount,1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = STATS.lm;
-                    FUNCFORLOOP.clusterR2.RSqAdj{timeCount,1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = STATS.lm.Rsquared.Adjusted;
+                    FUNCFORLOOP.clusterR2.RSqAdj{timeCount,1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = STATS.lm.Rsquared.Ordinary;
                     FUNCFORLOOP.clusterR2.PVal{timeCount,1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = STATS.lm.Coefficients.pValue(end);
-
-%                     FUNCFORLOOP.clusterR2.([FUNCFORLOOP.conditionsToAnalyse{iCond} '_RSq_Adj'])(timeCount,1) = STATS.lm.Rsquared.Adjusted;
-%                     FUNCFORLOOP.clusterR2.([FUNCFORLOOP.conditionsToAnalyse{iCond} '_PVal'])(timeCount,1) = STATS.lm.Coefficients.pValue(end);
-
+                    
+                    %                     FUNCFORLOOP.clusterR2.([FUNCFORLOOP.conditionsToAnalyse{iCond} '_RSq_Adj'])(timeCount,1) = STATS.lm.Rsquared.Adjusted;
+                    %                     FUNCFORLOOP.clusterR2.([FUNCFORLOOP.conditionsToAnalyse{iCond} '_PVal'])(timeCount,1) = STATS.lm.Coefficients.pValue(end);
+                    
                 end
                 
                 FUNCFORLOOP.clusterR2.formula{timeCount,1} = STATS.formula;
@@ -461,117 +613,54 @@ for iCluster = clusters
         end
         warning on
         
-    else
-               
-        % Secondly, if we do want to average over the latency and produce
-        % a single linear model.
+    end
+    
+    % ======================================================================= %
+    % If Only Returning Covariate Data, We Can Actually Just do a Little
+    % More Configuration and Return the Script.
+    % ======================================================================= %
+    
+    if varInput.ExtractCovariateData
         
-        % Current time point to plot.
+        covarData = table();
+        icFieldNames = FUNCFORLOOP.clusterR2.ICData{1}.Properties.VariableNames;
+        behavFieldNames = FUNCFORLOOP.clusterR2.BehavData{1}.Properties.VariableNames;
         
-        FUNCFORLOOP.clusterR2.latency = {FUNCFORLOOP.erpTimes_ToPlot};
-        FUNCFORLOOP.clusterR2.latencySync = {FUNCFORLOOP.erpTimes_ToPlotSync};
-        
-        % Extract the behavioural data and cluster activation for the
-        % corresponding time point.
-        
-        FUNCFORLOOP.clusterR2.ICData = {table()};
-        FUNCFORLOOP.clusterR2.BehavData = {table()};
-        for iCond = 1:length(FUNCFORLOOP.conditionsToAnalyse)
-            FUNCFORLOOP.averagePlot.currentData_IC(:,iCond) = squeeze(mean(FUNCLOOP.clusterData.(FUNCFORLOOP.conditionsToAnalyse{iCond}){clusterCount}(FUNCFORLOOP.clusterR2.latency{1},:),1));
-            FUNCFORLOOP.averagePlot.currentData_Behav(:,iCond,:) = FUNCLOOP.clusterData.behaviouralData{clusterCount,1}(:,iCond,:);
-            FUNCFORLOOP.clusterR2.ICData{1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = FUNCFORLOOP.averagePlot.currentData_IC(:,iCond);
-            FUNCFORLOOP.clusterR2.BehavData{1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = squeeze(FUNCFORLOOP.averagePlot.currentData_Behav(:,iCond,:));
+        for iField = 1:length(icFieldNames)
+            covarData.([icFieldNames{iField} '_IC']) = FUNCFORLOOP.clusterR2.ICData{1}.(icFieldNames{iField});
+            covarData.([behavFieldNames{iField} '_' varInput.PredictorNames{1}]) = FUNCFORLOOP.clusterR2.BehavData{1}.(behavFieldNames{iField});
+            covarData.([icFieldNames{iField} '_IC']) = round(covarData.([icFieldNames{iField} '_IC']),3);
+            covarData.([behavFieldNames{iField} '_' varInput.PredictorNames{1}]) = round(covarData.([behavFieldNames{iField} '_' varInput.PredictorNames{1}]),3);
         end
-        
-        % Regression or correlation, depending on varargin input.
-        
-        if varInput.Regression
-            FUNCFORLOOP.clusterR2.lm = {table()};
-            FUNCFORLOOP.clusterR2.RSqAdj = {table()};
-            FUNCFORLOOP.clusterR2.PVal = {table()};
-            for iCond = 1:length(FUNCFORLOOP.conditionsToAnalyse)
                 
-                % Produce table that contains the predictors and response
-                % variables, aswell as the formula we will use for the
-                % model.
-                
-                STATS = [];
-                
-                STATS.statTable = table();
-                
-                if isempty(varInput.ResponseName)
-                    STATS.formula = 'y~';
-                else
-                    STATS.formula = [varInput.ResponseName '~'];
-                end
-                
-                if isempty(varInput.PredictorNames)
-                    for iPredictor = 1:size(FUNCFORLOOP.averagePlot.currentData_Behav,3)
-                        STATS.statTable.(['x' num2str(iPredictor)]) = squeeze(FUNCFORLOOP.averagePlot.currentData_Behav(:,iCond,iPredictor));
-                        STATS.formula = [STATS.formula 'x' num2str(iPredictor) '+'];
-                    end
-                else
-                    for iPredictor = 1:size(FUNCFORLOOP.averagePlot.currentData_Behav,3)
-                        STATS.statTable.(varInput.PredictorNames{iPredictor}) = squeeze(FUNCFORLOOP.averagePlot.currentData_Behav(:,iCond,iPredictor));
-                        STATS.formula = [STATS.formula varInput.PredictorNames{iPredictor} '+'];
-                    end
-                end
-                
-                STATS.formula(end) = [];
-                if size(FUNCFORLOOP.averagePlot.currentData_Behav,3) > 1
-                    for iMulti = 2:size(FUNCFORLOOP.averagePlot.currentData_Behav,3)
-                        STATS.combos = nchoosek(1:size(FUNCFORLOOP.averagePlot.currentData_Behav,3),iMulti);
-                        for iCombo = 1:size(STATS.combos,1)
-                            TEMP = {};
-                            TEMP.count = 0;
-                            for iIV = STATS.combos(iCombo,:)
-                                TEMP.count = TEMP.count + 1;
-                                if isempty(varInput.PredictorNames)
-                                    TEMP.varsToJoin{TEMP.count} = ['x' num2str(iIV)];
-                                else
-                                    TEMP.varsToJoin{TEMP.count} = varInput.PredictorNames{iIV};
-                                end
-                            end
-                            TEMP.varsToJoin = strjoin(TEMP.varsToJoin,':');
-                            STATS.formula = [STATS.formula '+' TEMP.varsToJoin];
-                        end
-                    end
-                end
-                
-                if isempty(varInput.ResponseName)
-                    STATS.statTable.y = FUNCFORLOOP.averagePlot.currentData_IC(:,iCond);
-                else
-                    STATS.statTable.(varInput.ResponseName) = FUNCFORLOOP.averagePlot.currentData_IC(:,iCond);
-                end
-                
-                % Fit the model.
-                
-                STATS.lm = fitlm(STATS.statTable,STATS.formula);
-                
-                FUNCFORLOOP.clusterR2.lm{1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = STATS.lm;
-                FUNCFORLOOP.clusterR2.RSqAdj{1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = STATS.lm.Rsquared.Adjusted;
-                FUNCFORLOOP.clusterR2.PVal{1}.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = STATS.lm.Coefficients.pValue(end);
-                
-%                 [~,FUNCFORLOOP.clusterR2.(FUNCFORLOOP.conditionsToAnalyse{iCond})] = linearRegression(FUNCFORLOOP.averagePlot.currentData_IC(iCond,:),FUNCFORLOOP.averagePlot.currentData_Behav(iCond,:));
+        if ~isempty(varInput.ExtractCovariateData_Save)
+            
+            if isempty(varInput.PredictorNames)
+                saveDir = varInput.ExtractCovariateData_Save;
+                saveFile = ['C' nDigitString(iCluster,2) '_' num2str(varInput.Latency(1)) '_' num2str(varInput.Latency(end)) '.dat'];
+            else
+                saveDir = [varInput.ExtractCovariateData_Save varInput.PredictorNames{1} '\'];
+                saveFile = ['C' nDigitString(iCluster,2) '_' varInput.PredictorNames{1} '_' num2str(varInput.Latency(1)) '_' num2str(varInput.Latency(end))];
             end
             
-            FUNCFORLOOP.clusterR2.formula = STATS.formula;
+            if ~exist(saveDir); mkdir(saveDir); end
             
-        else
-            for iCond = 1:length(FUNCFORLOOP.conditionsToAnalyse)
-                FUNCFORLOOP2 = [];
-                FUNCFORLOOP2.corr = corrcoef(FUNCFORLOOP.averagePlot.currentData_Behav(iCond,:),FUNCFORLOOP.averagePlot.currentData_IC(iCond,:));
-                FUNCFORLOOP.clusterR2.(FUNCFORLOOP.conditionsToAnalyse{iCond}) = FUNCFORLOOP2.corr(1,2);
-            end
+            dlmwrite([saveDir saveFile '.txt'],table2array(covarData),'delimiter','\t');
+            writetable(covarData,[saveDir saveFile ' (TABLE).csv']);
+            
+            OUTPUT = covarData;
+            
+            return
+            
         end
-        
+    
     end
     
     % ======================================================================= %
     %
     % ======================================================================= %
     
-    figure; hold on;
+    FigH1 = figure('Position', get(0, 'Screensize')); hold on;
     
     if varInput.AverageOverLatency
         
@@ -630,7 +719,38 @@ for iCluster = clusters
         set(gca,'FontSize',12)
         box off
         
-        figure;
+        % ======================================================================= %
+        % Save Loop.
+        % ======================================================================= %
+        
+        saveInfo = {};
+        if varInput.PlotSave
+            for iPredictor = 1:length(behaviouralData)
+                if isempty(varInput.PredictorNames)
+                    saveInfo{iPredictor} = ['x' num2str(iPredictor)];
+                else
+                    saveInfo{iPredictor} = varInput.PredictorNames{iPredictor};
+                end
+            end
+            saveInfo = strjoin(saveInfo,'-');
+            saveInfo = [saveInfo ' (' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(1)) '-' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(end)) ')'];
+            if varInput.AverageOverLatency
+                saveInfo = [saveInfo '; Averaged Lat'];
+            end
+            if ~isempty(varInput.AverageConditions)
+                saveInfo = [saveInfo '; Averaged Cond'];
+            end
+            if varInput.FDR
+                saveInfo = [saveInfo '; FDR'];
+            end
+            newSaveDir = [varInput.PlotSave 'C' num2str(iCluster) '\'];
+            if ~exist(newSaveDir); mkdir(newSaveDir); end
+            saveas(gcf,[newSaveDir saveInfo '; PVals.bmp']);
+        end
+        
+        % ======================================================================= %
+        
+        FigH1 = figure('Position', get(0, 'Screensize')); hold on;
         
         if size(FUNCLOOP.clusterData.behaviouralData{1},3) == 1
             
@@ -703,6 +823,37 @@ for iCluster = clusters
             disp('Cannot Plot More than 3 Vars; Skipping')
         end
         
+        % ======================================================================= %
+        % Save Loop.
+        % ======================================================================= %
+        
+        saveInfo = {};
+        if varInput.PlotSave
+            for iPredictor = 1:length(behaviouralData)
+                if isempty(varInput.PredictorNames)
+                    saveInfo{iPredictor} = ['x' num2str(iPredictor)];
+                else
+                    saveInfo{iPredictor} = varInput.PredictorNames{iPredictor};
+                end
+            end
+            saveInfo = strjoin(saveInfo,'-');
+            saveInfo = [saveInfo ' (' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(1)) '-' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(end)) ')'];
+            if varInput.AverageOverLatency
+                saveInfo = [saveInfo '; Averaged Lat'];
+            end
+            if ~isempty(varInput.AverageConditions)
+                saveInfo = [saveInfo '; Averaged Cond'];
+            end
+            if varInput.FDR
+                saveInfo = [saveInfo '; FDR'];
+            end
+            newSaveDir = [varInput.PlotSave 'C' num2str(iCluster) '\'];
+            if ~exist(newSaveDir); mkdir(newSaveDir); end
+            saveas(gcf,[newSaveDir saveInfo '; Relationship.bmp']);
+        end
+        
+        % ======================================================================= %
+        
         % We will want to extract the regression output and print it to the
         % command window.
         
@@ -712,9 +863,9 @@ for iCluster = clusters
         disp(['Cluster = ' num2str(iCluster) '; ' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(1)) '-' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(end)) ' ms'])
         disp('==============================================')
         disp(' ')
-        for iCond = 1:length(FUNCLOOP.fieldNames_Master)
+        for iCond = 1:length(FUNCFORLOOP.conditionsToAnalyse)
             MODEL = [];
-            MODEL.currentCond = FUNCLOOP.fieldNames_Master{iCond};
+            MODEL.currentCond = FUNCFORLOOP.conditionsToAnalyse{iCond};
             MODEL.lm = FUNCFORLOOP.clusterR2.lm{1}.(MODEL.currentCond);
             MODEL.RSq = MODEL.lm.Rsquared.Ordinary;
             MODEL.RSqAdj = MODEL.lm.Rsquared.Adjusted;
@@ -724,10 +875,50 @@ for iCluster = clusters
             MODEL.anova.DF = MODEL.anova.summary({'Model' 'Total'},:).DF';
             MODEL.anova.F = MODEL.anova.summary('Model',:).F;
             MODEL.anova.P = MODEL.anova.summary('Model',:).pValue;
+            MODEL.t = MODEL.lm.Coefficients.tStat(end);
+            MODEL.PVal_tStat = MODEL.lm.Coefficients.pValue(end);
             disp(MODEL.currentCond)
             disp(['Beta = ' num2str(round(MODEL.Beta,4)) '; R^2 = ' num2str(round(MODEL.RSq,2)) ' (Adj = ' num2str(round(MODEL.RSqAdj,2)) ') P = ' num2str(round(MODEL.PVal,3))])
             disp(['ANOVA; F(' num2str(MODEL.anova.DF(1)) ',' num2str(MODEL.anova.DF(2)) ') = ' num2str(round(MODEL.anova.F,4)) ', P = ' num2str(round(MODEL.anova.P,4))])
+            disp(['T-Test; t(' num2str(MODEL.anova.DF(2)) ') = ' num2str(round(MODEL.t,4)) ', P = ' num2str(round(MODEL.PVal_tStat,4))]);
             disp(' ')
+        end
+        
+        % ======================================================================= %
+        % Write Regression Output to File.
+        % ======================================================================= %
+
+        if varInput.PlotSave
+            
+            FID = fopen([newSaveDir saveInfo '; Regression Output.txt'],'w');
+            
+            fprintf(FID,'==============================================\n');
+            fprintf(FID,'Regression Output\n');
+            fprintf(FID,['Cluster = ' num2str(iCluster) '; ' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(1)) '-' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(end)) ' ms\n']);
+            fprintf(FID,'==============================================\n\n');
+            for iCond = 1:length(FUNCFORLOOP.conditionsToAnalyse)
+                MODEL = [];
+                MODEL.currentCond = FUNCFORLOOP.conditionsToAnalyse{iCond};
+                MODEL.lm = FUNCFORLOOP.clusterR2.lm{1}.(MODEL.currentCond);
+                MODEL.RSq = MODEL.lm.Rsquared.Ordinary;
+                MODEL.RSqAdj = MODEL.lm.Rsquared.Adjusted;
+                MODEL.Beta = MODEL.lm.Coefficients.Estimate(end);
+                MODEL.PVal = MODEL.lm.Coefficients.pValue(end);
+                MODEL.anova.summary = anova(MODEL.lm,'summary');
+                MODEL.anova.DF = MODEL.anova.summary({'Model' 'Total'},:).DF';
+                MODEL.anova.F = MODEL.anova.summary('Model',:).F;
+                MODEL.anova.P = MODEL.anova.summary('Model',:).pValue;
+                MODEL.t = MODEL.lm.Coefficients.tStat(end);
+                MODEL.PVal_tStat = MODEL.lm.Coefficients.pValue(end);
+                fprintf(FID,[MODEL.currentCond '\n']);
+                fprintf(FID,['Beta = ' num2str(round(MODEL.Beta,4)) '; R^2 = ' num2str(round(MODEL.RSq,2)) ' (Adj = ' num2str(round(MODEL.RSqAdj,2)) ') P = ' num2str(round(MODEL.PVal,3)) '\n']);
+                fprintf(FID,['ANOVA; F(' num2str(MODEL.anova.DF(1)) ',' num2str(MODEL.anova.DF(2)) ') = ' num2str(round(MODEL.anova.F,4)) ', P = ' num2str(round(MODEL.anova.P,4)) '\n']);
+                fprintf(FID,['T-Test; t(' num2str(MODEL.anova.DF(2)) ') = ' num2str(round(MODEL.t,4)) ', P = ' num2str(round(MODEL.PVal_tStat,4)) '\n']);
+                fprintf(FID,'\n');
+            end
+            
+            fclose(FID);
+            
         end
         
     else
@@ -762,7 +953,11 @@ for iCluster = clusters
         STATS.pVals_Array = table2array(STATS.pVals);
         STATS.pVals_New = reshape(STATS.pVals_Array,size(STATS.pVals_Array,1)*size(STATS.pVals_Array,2),1);
         if varInput.FDR
-            STATS.pVals_New = mafdr(STATS.pVals_New,'BHFDR','true');
+            STATS.pVals_New = mafdr(STATS.pVals_New,'LAMBDA',0.15);
+            %             STATS.pVals_New = mafdr(STATS.pVals_New,'BHFDR','true');
+            %             STATS.pVals_New = bonf_holm(STATS.pVals_New);
+            %             [~,~,~,STATS.pVals_New] = fdr_bh(STATS.pVals_Array);
+            %             STATS.pVals_New = fdr0(STATS.pVals_New,0.05);
         end
         STATS.pVals_Corrected = reshape(STATS.pVals_New,size(STATS.pVals_Array,1),size(STATS.pVals_Array,2));
         STATS.pVals_Corrected = array2table(STATS.pVals_Corrected);
@@ -778,10 +973,42 @@ for iCluster = clusters
         legend(FUNCLOOP.legendNames)
         axis([FUNCFORLOOP.clusterR2.latencySync(1) FUNCFORLOOP.clusterR2.latencySync(end) 0 varInput.PValYAxis])
         xlabel('ms')
-            ylabel('P-Value')
-            title(['P-Value Over Cluster Time Course; ' FUNCLOOP.clusterData.cluster{clusterCount,1}])
+        ylabel('P-Value')
+        title(['P-Value Over Cluster Time Course; ' FUNCLOOP.clusterData.cluster{clusterCount,1}])
         set(gca,'FontSize',12)
         box off
+        
+        % ======================================================================= %
+        % Save Loop.
+        % ======================================================================= %
+        
+        saveInfo = {};
+        if varInput.PlotSave
+            for iPredictor = 1:length(behaviouralData)
+                if isempty(varInput.PredictorNames)
+                    saveInfo{iPredictor} = ['x' num2str(iPredictor)];
+                else
+                    saveInfo{iPredictor} = varInput.PredictorNames{iPredictor};
+                end
+            end
+            saveInfo = strjoin(saveInfo,'-');
+            saveInfo = [saveInfo ' (' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(1)) '-' num2str(FUNCFORLOOP.erpTimes_ToPlotSync(end)) ')'];
+            if varInput.AverageOverLatency
+                saveInfo = [saveInfo '; Averaged Lat'];
+            end
+            if ~isempty(varInput.AverageConditions)
+                saveInfo = [saveInfo '; Averaged Cond'];
+            end
+            if varInput.FDR
+                saveInfo = [saveInfo '; FDR'];
+            end
+            newSaveDir = [varInput.PlotSave 'C' num2str(iCluster) '\'];
+            if ~exist(newSaveDir); mkdir(newSaveDir); end
+            saveas(gcf,[newSaveDir saveInfo '; Prediction Over Time.bmp']);
+            saveas(gcf,[newSaveDir saveInfo '; Prediction Over Time.fig']);
+        end
+        
+        % ======================================================================= %
         
     end
     
