@@ -55,6 +55,10 @@
 %                           input. (DEFAULT: 0)
 % FDR                   -   False-discovery rate correction (BHFDR).
 %                           (DEFAULT: 0)
+% FDRLambda             -   Tuning parameter lambda used in
+%                           estimating the a-priori probability that the 
+%                           null hypotheses is true (mafdr). 
+%                           (DEFAULT:  [0.01:0.01:0.95])
 % PredictorNames        -   Name of predictor variables. (DEFAULT: {})
 % ResponseName          -   Name of response variable. (DEFAULT: {})
 % ForceStudyCond        -   Force the STUDY.condition variable to be
@@ -953,7 +957,7 @@ for iCluster = clusters
         STATS.pVals_Array = table2array(STATS.pVals);
         STATS.pVals_New = reshape(STATS.pVals_Array,size(STATS.pVals_Array,1)*size(STATS.pVals_Array,2),1);
         if varInput.FDR
-            STATS.pVals_New = mafdr(STATS.pVals_New,'LAMBDA',0.15);
+            STATS.pVals_New = mafdr(STATS.pVals_New,'LAMBDA',varInput.FDRLambda);
             %             STATS.pVals_New = mafdr(STATS.pVals_New,'BHFDR','true');
             %             STATS.pVals_New = bonf_holm(STATS.pVals_New);
             %             [~,~,~,STATS.pVals_New] = fdr_bh(STATS.pVals_Array);
