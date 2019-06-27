@@ -4,7 +4,7 @@
 %
 % First Created 01/01/2019
 %
-% Current version = v1.0
+% Current version = v1.1
 %
 % Plot a butterfly plot of EEG electrode data.
 % 
@@ -49,7 +49,8 @@
 % UPDATE HISTORY:
 %
 % 01/01/2019 (v1.0) -   V1.0 Created.
-%
+% 21/03/2019 (v1.1) -   Removed force new figure.
+% 
 % ======================================================================= %
 
 function butterflyPlotFunction(data,electrodeN,baseline)
@@ -76,8 +77,6 @@ nDataPoints = size(data,2);
 baseline = abs(baseline);
 
 t = -baseline:nDataPoints-(baseline+1);
-
-figure;
 
 for iElectrode = 1:size(data,1)
     plot(t,data(iElectrode,:),'Color',plotProp.lineColour,'LineWidth',plotProp.lineWidth)

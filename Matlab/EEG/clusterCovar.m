@@ -4,7 +4,7 @@
 %
 % First Created 13/02/2019
 %
-% Current version = v1.4
+% Current version = v1.5
 %
 % Carries out regression analysis over a specified time interval for
 % clustered independent components. Since multiple components can be
@@ -121,6 +121,7 @@
 % 22/03/2019 (V1.4) -   Will save plots to individual file.
 %                   -   Will extract the covariate data into a variable, or
 %                       save it to a .txt and .csv file.
+% 28/03/2019 (v1.5) -   FDR lambda tuning option.
 % 
 % ======================================================================= %
 
@@ -141,6 +142,7 @@ if ~isfield(varInput, 'AverageConditions'), varInput.AverageConditions = []; end
 if ~isfield(varInput, 'Regression'), varInput.Regression = 1; end
 if ~isfield(varInput, 'AverageOverLatency'), varInput.AverageOverLatency = 0; end
 if ~isfield(varInput, 'FDR'), varInput.FDR = 0; end
+if ~isfield(varInput, 'FDRLambda'), varInput.FDRLambda = [0.01:0.01:0.95]; end
 if ~isfield(varInput, 'PredictorNames'), varInput.PredictorNames = {}; end
 if ~isfield(varInput, 'ResponseName'), varInput.ResponseName = {}; end
 if ~isfield(varInput, 'ForceStudyCond'), varInput.ForceStudyCond = 0; end

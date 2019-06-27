@@ -76,6 +76,13 @@
 % ERPOnly                           -   Plot ERP Only. (DEFAULT: 0)
 % PlotElectrodes                    -   Plot specific electrodes. 
 %                                       (DEFAULT: [])
+% ExtractMasterFileOnly             -   Extract one file only. 
+%                                       (DEFAULT: 0)
+% EpochDataType                     -   Event types to epoch. (DEFAULT: [])
+% EpochDataEpoch                    -   Event epoch. (DEFAULT: [])
+% EpochDataBaseline                 -   Event epoch baseline. (DEFAULT: [])
+% ConditionColumn                   -   What column to use to extract 
+%                                       conditons. (DEFAULT: [])
 % 
 % ======================================================================= %
 % Outputs:
@@ -135,6 +142,11 @@ if ~isfield(varInput, 'ERPDataSave'), varInput.ERPDataSave = []; end
 if ~isfield(varInput, 'EpochInformationSave'), varInput.EpochInformationSave = []; end
 if ~isfield(varInput, 'ERPOnly'), varInput.ERPOnly = 0; end
 if ~isfield(varInput, 'PlotElectrodes'), varInput.PlotElectrodes = []; end
+if ~isfield(varInput, 'ExtractMasterFileOnly'), varInput.ExtractMasterFileOnly = 0; end
+if ~isfield(varInput, 'EpochDataType'), varInput.EpochDataType = []; end
+if ~isfield(varInput, 'EpochDataEpoch'), varInput.EpochDataEpoch = []; end
+if ~isfield(varInput, 'EpochDataBaseline'), varInput.EpochDataBaseline = []; end
+if ~isfield(varInput, 'ConditionColumn'), varInput.ConditionColumn = []; end
 
 FUNCLOOP = [];
 
@@ -194,70 +206,83 @@ for iFolder = 3:size(FUNCLOOP.folders,1)
         FUNCFORLOOP.conditions{iCond} = cell2mat(cellstr(strrep(FUNCFORLOOP.currentFilesNew(iCond,:),'.set','')));
     end
     
-    if ~isempty(varInput.TrialAverage_ConditionAverage) | ~isempty(varInput.AllEventAverage_ConditionAverage)
+    % Skip this secion if only extracting master file.
+    
+    if ~varInput.ExtractMasterFileOnly
         
-        if isempty(varInput.Conditions)
-            error('If Averaging Across Conditions for Plots (''TrialAverage_ConditionAverage'' or ''AllEventAverage_ConditionAverage''), Condition Names (''Conditions'') must be Reported')
-        else
-            if length(varInput.Conditions) ~= length(FUNCFORLOOP.conditions)
-                error('Reported Conditions Does not Match Size of Conditions Obtained from Set File Names')
+        if ~isempty(varInput.TrialAverage_ConditionAverage) | ~isempty(varInput.AllEventAverage_ConditionAverage)
+            
+            if isempty(varInput.Conditions)
+                error('If Averaging Across Conditions for Plots (''TrialAverage_ConditionAverage'' or ''AllEventAverage_ConditionAverage''), Condition Names (''Conditions'') must be Reported')
             else
-                for iCond = 1:length(varInput.Conditions)
-                    if ~any(strcmp(varInput.Conditions{iCond},FUNCFORLOOP.conditions))
-                        error(['Reported Condition not Found in Set Files; ' varInput.Conditions{iCond}])
+                if length(varInput.Conditions) ~= length(FUNCFORLOOP.conditions)
+                    error('Reported Conditions Does not Match Size of Conditions Obtained from Set File Names')
+                else
+                    for iCond = 1:length(varInput.Conditions)
+                        if ~any(strcmp(varInput.Conditions{iCond},FUNCFORLOOP.conditions))
+                            error(['Reported Condition not Found in Set Files; ' varInput.Conditions{iCond}])
+                        end
                     end
                 end
             end
-        end
-        
-        if ~isempty(varInput.TrialAverage_ConditionAverage)
-            if length(varInput.TrialAverage) ~= length(varInput.TrialAverage_ConditionAverage)
-                error('Number of Averages (''TrialAverage_ConditionAverage'') ~= Number of Event Types (''TrialAverage'')')
+            
+            if ~isempty(varInput.TrialAverage_ConditionAverage)
+                if length(varInput.TrialAverage) ~= length(varInput.TrialAverage_ConditionAverage)
+                    error('Number of Averages (''TrialAverage_ConditionAverage'') ~= Number of Event Types (''TrialAverage'')')
+                end
             end
-        end
-        
-        if ~isempty(varInput.AllEventAverage_ConditionAverage)
-            if length(varInput.AllEventAverage) ~= length(varInput.AllEventAverage_ConditionAverage)
-                error('Number of Averages (''AllEventAverage_ConditionAverage'') ~= Number of Event Types (''AllEventAverage'')')
+            
+            if ~isempty(varInput.AllEventAverage_ConditionAverage)
+                if length(varInput.AllEventAverage) ~= length(varInput.AllEventAverage_ConditionAverage)
+                    error('Number of Averages (''AllEventAverage_ConditionAverage'') ~= Number of Event Types (''AllEventAverage'')')
+                end
             end
-        end
-        
-        TEMPSTORAGE = [];
-        TEMPSTORAGE.trialAverage = cat(1,varInput.TrialAverage_ConditionAverage{:});
-        TEMPSTORAGE.trialAverage = reshape(TEMPSTORAGE.trialAverage,size(TEMPSTORAGE.trialAverage,1)*size(TEMPSTORAGE.trialAverage,2),1);
-        TEMPSTORAGE.trialAverage = cat(2,TEMPSTORAGE.trialAverage{:});
-        TEMPSTORAGE.trialAverage = cat(2,TEMPSTORAGE.trialAverage{:});
-        TEMPSTORAGE.trialAverage = unique(TEMPSTORAGE.trialAverage);
-        
-        if length(TEMPSTORAGE.trialAverage) == length(varInput.Conditions)
-            if ~all(TEMPSTORAGE.trialAverage == 1:length(varInput.Conditions))
-                error('Indices of Conditions for Averaging (''TrialAverage_ConditionAverage'') Extend Beyond Number of Condition')
+            
+            TEMPSTORAGE = [];
+            TEMPSTORAGE.trialAverage = cat(1,varInput.TrialAverage_ConditionAverage{:});
+            TEMPSTORAGE.trialAverage = reshape(TEMPSTORAGE.trialAverage,size(TEMPSTORAGE.trialAverage,1)*size(TEMPSTORAGE.trialAverage,2),1);
+            TEMPSTORAGE.trialAverage = cat(2,TEMPSTORAGE.trialAverage{:});
+            TEMPSTORAGE.trialAverage = cat(2,TEMPSTORAGE.trialAverage{:});
+            TEMPSTORAGE.trialAverage = unique(TEMPSTORAGE.trialAverage);
+            
+            if length(TEMPSTORAGE.trialAverage) == length(varInput.Conditions)
+                if ~all(TEMPSTORAGE.trialAverage == 1:length(varInput.Conditions))
+                    error('Indices of Conditions for Averaging (''TrialAverage_ConditionAverage'') Extend Beyond Number of Condition')
+                end
+            else
+                error('Number Indices of Conditions for Averaging (''TrialAverage_ConditionAverage'') Does not Equal Number of Conditions')
             end
-        else
-            error('Number Indices of Conditions for Averaging (''TrialAverage_ConditionAverage'') Does not Equal Number of Conditions')
-        end
-        
-        TEMPSTORAGE = [];
-        TEMPSTORAGE.allEventAverage = cat(1,varInput.AllEventAverage_ConditionAverage{:});
-        TEMPSTORAGE.allEventAverage = reshape(TEMPSTORAGE.allEventAverage,size(TEMPSTORAGE.allEventAverage,1)*size(TEMPSTORAGE.allEventAverage,2),1);
-        TEMPSTORAGE.allEventAverage = cat(2,TEMPSTORAGE.allEventAverage{:});
-        TEMPSTORAGE.allEventAverage = cat(2,TEMPSTORAGE.allEventAverage{:});
-        TEMPSTORAGE.allEventAverage = unique(TEMPSTORAGE.allEventAverage);
-        
-        if length(TEMPSTORAGE.allEventAverage) == length(varInput.Conditions)
-            if ~all(TEMPSTORAGE.allEventAverage == 1:length(varInput.Conditions))
-                error('Indices of Conditions for Averaging (''AllEventAverage_ConditionAverage'') Extend Beyond Number of Condition')
+            
+            TEMPSTORAGE = [];
+            TEMPSTORAGE.allEventAverage = cat(1,varInput.AllEventAverage_ConditionAverage{:});
+            TEMPSTORAGE.allEventAverage = reshape(TEMPSTORAGE.allEventAverage,size(TEMPSTORAGE.allEventAverage,1)*size(TEMPSTORAGE.allEventAverage,2),1);
+            TEMPSTORAGE.allEventAverage = cat(2,TEMPSTORAGE.allEventAverage{:});
+            TEMPSTORAGE.allEventAverage = cat(2,TEMPSTORAGE.allEventAverage{:});
+            TEMPSTORAGE.allEventAverage = unique(TEMPSTORAGE.allEventAverage);
+            
+            if length(TEMPSTORAGE.allEventAverage) == length(varInput.Conditions)
+                if ~all(TEMPSTORAGE.allEventAverage == 1:length(varInput.Conditions))
+                    error('Indices of Conditions for Averaging (''AllEventAverage_ConditionAverage'') Extend Beyond Number of Condition')
+                end
+            else
+                error('Number Indices of Conditions for Averaging (''AllEventAverage_ConditionAverage'') Does not Equal Number of Conditions')
             end
-        else
-            error('Number Indices of Conditions for Averaging (''AllEventAverage_ConditionAverage'') Does not Equal Number of Conditions')
+            
         end
         
     end
     
+    % Load up set files.
+    
     STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
     
-    FUNCFORLOOP.currentFiles = cellstr(FUNCFORLOOP.currentFiles);
-    FUNCFORLOOP.currentFilesNew = cellstr(FUNCFORLOOP.currentFilesNew);
+    if varInput.ExtractMasterFileOnly
+        FUNCFORLOOP.currentFiles = {[FUNCFORLOOP.currentSubFolder '.set']}
+        FUNCFORLOOP.currentFilesNew = {[FUNCFORLOOP.currentSubFolder '.set']}
+    else
+        FUNCFORLOOP.currentFiles = cellstr(FUNCFORLOOP.currentFiles);
+        FUNCFORLOOP.currentFilesNew = cellstr(FUNCFORLOOP.currentFilesNew);
+    end
     
     for iVarargin = 1:length(varInput.TrialAverage)
         FUNCFORLOOP2 = [];
@@ -317,8 +342,17 @@ for iFolder = 3:size(FUNCLOOP.folders,1)
         catch
             EEG = pop_loadset('filename',FUNCFORLOOP2.currentSet,'filepath',FUNCFORLOOP.currentFolder);
             [ALLEEG, EEG, CURRENTSET] = eeg_store( ALLEEG, EEG, 0 );
-            FUNCFORLOOP.currentInfo_Epoch.(FUNCFORLOOP2.currentSetName) = EEG.epoch;
-            FUNCFORLOOP.currentInfo_Event.(FUNCFORLOOP2.currentSetName) = EEG.event;
+        end
+        
+        if size(EEG.epoch,2) == 0
+            
+            EEG = eeg_checkset( EEG );
+            EEG = pop_epoch( EEG, {  varInput.EpochDataType  }, [varInput.EpochDataEpoch(1)/1000 varInput.EpochDataEpoch(end)/1000], 'newname', FUNCFORLOOP.currentSubFolder, 'epochinfo', 'yes');
+            [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 1,'gui','off');
+            EEG = eeg_checkset( EEG );
+            EEG = pop_rmbase( EEG, [varInput.EpochDataBaseline(1) varInput.EpochDataBaseline(end)]);
+            [ALLEEG EEG CURRENTSET] = pop_newset(ALLEEG, EEG, 2,'gui','off');
+            
         end
         
         % Extract Epoch Events.
@@ -327,6 +361,60 @@ for iFolder = 3:size(FUNCLOOP.folders,1)
             
         else
             
+            if varInput.ExtractMasterFileOnly
+                    
+                FUNCFORLOOP2.currentEvents = EEG.event(extractEpochEvents(EEG));;
+                
+                for iCond = 1:length(varInput.Conditions)
+                    
+                    FUNCFORLOOP3 = [];
+                    FUNCFORLOOP3.currentCondIndices = find(strcmp({FUNCFORLOOP2.currentEvents.(varInput.ConditionColumn)},varInput.Conditions{iCond}));
+                    
+                    FUNCLOOP.EpochCount.(varInput.Conditions{iCond})(subCount,1) = sum(strcmp({FUNCFORLOOP2.currentEvents.(varInput.ConditionColumn)},varInput.Conditions{iCond}));
+                    
+                    for iVarargin = 1:length(varInput.AllEventAverage)
+                        FUNCFORLOOP4 = [];
+                        FUNCFORLOOP4.currentVar = varInput.AllEventAverage{iVarargin};
+                        if isfield(EEG.event,FUNCFORLOOP4.currentVar)
+                            FUNCFORLOOP4.currentVarVals = [EEG.event(FUNCFORLOOP3.currentCondIndices).(FUNCFORLOOP4.currentVar)];
+                            FUNCFORLOOP.AllEventAverage.(FUNCFORLOOP4.currentVar).(varInput.Conditions{iCond}) = {FUNCFORLOOP4.currentVarVals};
+                            % FUNCFORLOOP3.currentVarValsMean = nanmean(FUNCFORLOOP3.currentVarVals);
+                            % FUNCFORLOOP.AllEventAverage.(FUNCFORLOOP3.currentVar).(FUNCFORLOOP2.currentSetName) = FUNCFORLOOP3.currentVarValsMean;
+                        else
+                            error(['"' FUNCFORLOOP4.currentVar '" is not in Event Structure; ' FUNCFORLOOP2.currentSet])
+                        end
+                    end
+                    
+                    for iVarargin = 1:length(varInput.TrialAverage)
+                        FUNCFORLOOP4 = [];
+                        FUNCFORLOOP4.currentVar = varInput.TrialAverage{iVarargin};
+                        if isfield(EEG.event,FUNCFORLOOP4.currentVar)
+                            FUNCFORLOOP4.currentVarEvents = FUNCFORLOOP2.currentEvents(FUNCFORLOOP3.currentCondIndices);
+                            FUNCFORLOOP4.uniqueTrials = unique([FUNCFORLOOP4.currentVarEvents.(varInput.TrialNumColumn)]);
+                            for iUnique = 1:length(FUNCFORLOOP4.uniqueTrials)
+                                FUNCFORLOOP5 = [];
+                                FUNCFORLOOP5.currentTrialTypeIndex = find([FUNCFORLOOP4.currentVarEvents.(varInput.TrialNumColumn)] == FUNCFORLOOP4.uniqueTrials(iUnique));
+                                FUNCFORLOOP4.singleEventIndices(iUnique) = FUNCFORLOOP5.currentTrialTypeIndex(1);
+                            end
+                            FUNCFORLOOP4.currentVarVals = [FUNCFORLOOP4.currentVarEvents(FUNCFORLOOP4.singleEventIndices).(FUNCFORLOOP4.currentVar)];
+                            FUNCFORLOOP.TrialAverage.(FUNCFORLOOP4.currentVar).(varInput.Conditions{iCond}) = {FUNCFORLOOP4.currentVarVals};
+                            % FUNCFORLOOP3.currentVarValsMean = nanmean(FUNCFORLOOP3.currentVarVals);
+                            % FUNCFORLOOP.TrialAverage.(FUNCFORLOOP3.currentVar).(FUNCFORLOOP2.currentSetName) = FUNCFORLOOP3.currentVarValsMean;
+                        else
+                            error(['"' FUNCFORLOOP4.currentVar '" is not in Event Structure; ' FUNCFORLOOP2.currentSet])
+                        end
+                    end
+                    
+                    warning off
+                    FUNCFORLOOP2.currentVarEvents = FUNCFORLOOP2.currentEvents(FUNCFORLOOP3.currentCondIndices);
+                    FUNCFORLOOP2.uniqueTrials = unique([FUNCFORLOOP2.currentVarEvents.(varInput.TrialNumColumn)]);
+                    FUNCLOOP.nTrials.(varInput.Conditions{iCond})(subCount,1) = length(FUNCFORLOOP4.uniqueTrials);
+                    warning on
+                    
+                end
+                
+            else
+                
             FUNCLOOP.EpochCount.(FUNCFORLOOP2.currentSetName)(subCount,1) = size(EEG.epoch,2);
             
             FUNCFORLOOP2.events = extractEpochEvents(EEG);
@@ -369,11 +457,33 @@ for iFolder = 3:size(FUNCLOOP.folders,1)
             FUNCLOOP.nTrials.(FUNCFORLOOP2.currentSetName)(subCount,1) = length(FUNCFORLOOP3.uniqueTrials);
             warning on
             
+            end
+            
         end
         
-        FUNCFORLOOP.ERPData.(FUNCFORLOOP2.currentSetName) = {EEG.data};
+        if varInput.ExtractMasterFileOnly
+            for iCond = 1:length(varInput.Conditions)
+                FUNCFORLOOP3 = [];
+                FUNCFORLOOP3.currentCondIndices = find(strcmp({FUNCFORLOOP2.currentEvents.(varInput.ConditionColumn)},varInput.Conditions{iCond}));
+                FUNCFORLOOP.ERPData.(varInput.Conditions{iCond}) = {EEG.data(:,:, FUNCFORLOOP3.currentCondIndices)};
+            end
+        else
+            FUNCFORLOOP.ERPData.(FUNCFORLOOP2.currentSetName) = {EEG.data};
+        end
         
-        STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
+        if ~varInput.ExtractMasterFileOnly
+            FUNCFORLOOP.currentInfo_Epoch.(FUNCFORLOOP2.currentSetName) = EEG.epoch;
+            FUNCFORLOOP.currentInfo_Event.(FUNCFORLOOP2.currentSetName) = EEG.event;
+        else
+            for iCond = 1:length(varInput.Conditions)
+                FUNCFORLOOP3 = [];
+                FUNCFORLOOP3.currentCondIndices_Event = find(strcmp({FUNCFORLOOP2.currentEvents.(varInput.ConditionColumn)},varInput.Conditions{iCond}));
+                FUNCFORLOOP.currentInfo_Event.(varInput.Conditions{iCond}) = EEG.event(FUNCFORLOOP3.currentCondIndices_Event);
+                FUNCFORLOOP.currentInfo_Epoch.(varInput.Conditions{iCond}) = {};
+            end
+        end
+        
+            STUDY = []; CURRENTSTUDY = 0; ALLEEG = []; EEG=[]; CURRENTSET=[];
         
     end
     
@@ -387,6 +497,7 @@ for iFolder = 3:size(FUNCLOOP.folders,1)
         saveData = [];
         saveData.event = FUNCFORLOOP.currentInfo_Event;
         saveData.epoch = FUNCFORLOOP.currentInfo_Epoch;
+        if ~exist(varInput.EpochInformationSave); mkdir(varInput.EpochInformationSave); end
         save([varInput.EpochInformationSave FUNCFORLOOP.currentSubFolder '.mat'],'saveData')
     end
     

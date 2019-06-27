@@ -1,83 +1,73 @@
 % ======================================================================= %
 %
-% Created by Andrej Stancak.
+% Created by John Tyson-Carr
 %
-% First Created 13/10/2018
+% First Created 18/10/2018
 %
 % Current version = v1.0
 %
-% Read .evt file exported from BESA. This works with BESA 6.1, since this
-% BESA version produces a 4th column (DIN).
-%
+% Given an origin, width and height, this will produce the coordinates for
+% the resulting rectangle. 
+% 
 % ======================================================================= %
 % Required Inputs:
 % ======================================================================= %
 %
-% Ename     -   Event file name.
-%
+% origin    -   Rectangle origin.
+% w         -   Rectangle width.
+% h         -   Rectangle height.
+% 
 % ======================================================================= %
 % Optional Inputs:
 % ======================================================================= %
 %
-%
-%
+% 
+% 
 % ======================================================================= %
 % Outputs:
 % ======================================================================= %
 %
-% E     -   Matlab array of events.
-%
+% coords    -   Four points for rectangle corners.
+% 
 % ======================================================================= %
 % Example
 % ======================================================================= %
 %
-% E = readAvt_6_1('D:/eventFile1.evt');
-%
+% coords = createRectangleCoords([0 0],200,50);
+% 
 % ======================================================================= %
 % Dependencies.
 % ======================================================================= %
-%
-%
-%
+% 
+% selfintersect
+% poly2cw
+% 
 % ======================================================================= %
 % UPDATE HISTORY:
 %
-% 13/10/2018 (v1.0) -   V1.0 Created.
+% 18/10/2018 (v1.0) -   V1.0 Created.
 %
 % ======================================================================= %
 
-function E = readAvt_6_1(Ename)
+function coords = createRectangleCoords(origin,w,h)
 
+coords = [];
+coordsOrig = [];
 
-E = [];
+w = w/2;
+h = h/2;
 
-fid = fopen(Ename);
-n=0;
-tline = fgetl(fid);
-while 1
-    tline = fgetl(fid);
-    if ~ischar(tline), break, end
-    %disp(tline);
-    s=tline;
-    n=n+1;
-    [g b c d x1 x2 x3] = strread(deblank(s),'%f %d %d %s %s %s %s');
-    E(n,1)=g(1,1);
-    E(n,2)=b;
-    E(n,3)=c;
-    
-    if ~isempty(x2)
-        din = str2num(cell2mat(regexp(cell2mat(x2),'\d*','Match')));
-    else
-        din = NaN;
-    end
-    
-    E(n,4) = din;
-    
+coordsOrig(1,:) = [origin(1)-w origin(2)+h];
+coordsOrig(2,:) = [origin(1)+w origin(2)+h];
+coordsOrig(3,:) = [origin(1)+w origin(2)-h];
+coordsOrig(4,:) = [origin(1)-w origin(2)-h];
+
+[coordsOrig(:,1) coordsOrig(:,2)] = poly2cw(coordsOrig(:,1),coordsOrig(:,2));
+
+intersect = selfintersect(coordsOrig(:,1),coordsOrig(:,2));
+
+if ~isempty(intersect); disp('Self Intersection Found'); return; end;
+
+coords = coordsOrig;
+
 end
-fclose(fid);
-
-disp([num2str(n) ' various triggers and patterns read']);
-
-return;
-
-
