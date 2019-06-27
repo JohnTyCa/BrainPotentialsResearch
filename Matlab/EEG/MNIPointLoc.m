@@ -86,7 +86,7 @@ varInput = [];
 for iVar = 1:2:length(varargin)
     varInput = setfield(varInput, varargin{iVar}, varargin{iVar+1});
 end;
-if ~isfield(varInput, 'DBFile'), varInput.DBFile = []; end
+if ~isfield(varInput, 'DBFile'), varInput.DBFile = 'TDdatabase.mat'; end
 if ~isfield(varInput, 'CubeSpace'), varInput.CubeSpace = 0; end
 if ~isfield(varInput, 'CubeSpaceSize'), varInput.CubeSpaceSize = 5; end
 if ~isfield(varInput, 'CubeSpaceDist'), varInput.CubeSpaceDist = 0.2; end
@@ -122,7 +122,7 @@ end
 
 COORDSPACE = [];
 COORDSPACE.centre = MNI;
-COORDSPACE.DB_All = load('C:\Users\hljtyson\OneDrive - The University of Liverpool\PROGRAMS\EEGLabProjects\FindBrainStructure\TDdatabase.mat');
+COORDSPACE.DB_All = load(varInput.DBFile);
 COORDSPACE.DB = COORDSPACE.DB_All.DB;
 
 % ======================================================================= %

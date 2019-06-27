@@ -32,7 +32,7 @@
 %                           "rloc128.m" function produces the same variable
 %                           for "egihydrocel_129" electrode locations file.
 %                           (DEFAULT: rloc128)
-% markerSize            -   Size of marker in the plot.
+% markerSize            -   Size of marker in the plot. (DEFAULT: 10)
 % 
 % ======================================================================= %
 % Outputs:

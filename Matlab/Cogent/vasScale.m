@@ -4,7 +4,7 @@
 %
 % First Created 08/05/2018
 %
-% Current version = v2.2
+% Current version = v2.4
 %
 % ======================================================================= %
 % Required Inputs:
@@ -135,6 +135,19 @@
 %                               report its final rating if the mouse does
 %                               not move for three seconds after making the
 %                               last selection). (DEFAULT: [])
+% 
+% forceOption               -   If using a box scale, this will force a
+%                               specific option to be selected. 
+%                               (DEFAULT: [])
+% 
+% presentText               -   Draw text in specified location. Requires
+%                               the text (char array), x-location
+%                               (numeric), y-location (numeric), plus any
+%                               number of optional inputs detailed in
+%                               'cog_InsertText' function, such as
+%                               fontSize, font, colour, etc. For example,
+%                               {'TEXT_TO_INSERT',0,-150,'fontSize',64}.
+%                               (DEFAULT: [])
 %
 % ======================================================================= %
 % Outputs:
@@ -244,6 +257,17 @@
 % end
 %
 % ======================================================================= %
+% Dependencies
+% ======================================================================= %
+% 
+% cog_InsertText
+% trackMouse
+% fillScale (Nested)
+% drawScales (Nested)
+% drawLineScale (Nested)
+% drawBoxScale (Nested)
+% 
+% ======================================================================= %
 % UPDATE HISTORY:
 %
 % 09/05/2018 (v1.0) -   Input mouse tracking and maximum scale
@@ -281,6 +305,10 @@
 % 28/02/2019 (v2.3) -   Concatenated functions into single script.
 %                       Organised script and made more notes.
 %
+% 28/03/2019 (v2.4) -   Ability to force specific choice.
+% 
+% 29/03/2019 (v2.5) -   Ability to present text on screen continuously.
+% 
 % ======================================================================= %
 
 function [ratingValues, MOUSETRACK, flipTime, boxSync] = vasScale(origin,w,h,anchor,varargin)
@@ -344,6 +372,8 @@ if ~isfield(varInput, 'fixMousePositionDuration'), varInput.fixMousePositionDura
 if ~isfield(varInput, 'triggerForScale'), varInput.triggerForScale = []; end
 if ~isfield(varInput, 'triggerForClick'), varInput.triggerForClick = []; end
 if ~isfield(varInput, 'mouseAutoCont'), varInput.mouseAutoCont = []; end
+if ~isfield(varInput, 'forceOption'), varInput.forceOption = 0; end
+if ~isfield(varInput, 'presentText'), varInput.presentText = []; end
 
 %=====================================================================%
 % Logic Checks.
@@ -402,7 +432,7 @@ end
 % Main Loop.
 %=====================================================================%
 
-while finishedLoop == 0
+while ~finishedLoop
     
     % Get start of bidding time.
     
@@ -453,14 +483,14 @@ while finishedLoop == 0
     
     % Draw scale, and input trigger if required.
     
-    if scalesDrawn == 0
+    if ~scalesDrawn
         [OUTPUT, optionSelected, CONTBOX, scalesDrawn, flipTime] = drawScales(coordsFill,INPUT,varInput,optionSelected);
         if ~isempty(varInput.triggerForScale)
             inputTrigger(varInput.triggerForScale{1},varInput.triggerForScale{2},varInput.triggerForScale{3});
         end
     end
     
-    if varInput.drawOnly == 0
+    if ~varInput.drawOnly
         
         if MOUSE.bp > 0
             
@@ -477,7 +507,7 @@ while finishedLoop == 0
             
             %==============================================================%
             
-            if ~isempty(varInput.contBoxOrigin) && ~varInput.mouseAutoCont
+            if ~isempty(varInput.contBoxOrigin) && isempty(varInput.mouseAutoCont)
                 if inpolygon(MOUSE.x,MOUSE.y,CONTBOX.coordsCogent(:,1),CONTBOX.coordsCogent(:,2))
                     if (varInput.forceChoice == 1 && all(optionSelected)) || varInput.forceChoice == 0
                         contBoxSelected = 1;
@@ -515,11 +545,11 @@ while finishedLoop == 0
             end
         end
         
-    elseif varInput.drawOnly == 1
+    elseif varInput.drawOnly
         finishedLoop = 1;
     end
     
-    if contBoxSelected == 1
+    if contBoxSelected
         finishedLoop = 1;
     end
     
@@ -530,7 +560,7 @@ while finishedLoop == 0
     end
     
     if exist('AUTO_CONT','var')
-        if optionSelected == 1 && AUTO_CONT.continue == 1
+        if optionSelected && AUTO_CONT.continue
             finishedLoop = 1;
         end
     end
@@ -547,32 +577,6 @@ end
 ratingValues = coordsFill;
 
 if ~exist('MOUSETRACK','var'); MOUSETRACK = []; end
-
-end
-
-%=====================================================================%
-%=====================================================================%
-%=====================================================================%
-
-function MOUSETRACK = trackMouse(MOUSETRACK)
-
-[MOUSE.x,MOUSE.y,MOUSE.bd,MOUSE.bp] = cgmouse;
-
-if ~isfield(MOUSETRACK,'xy')
-    MOUSETRACK.xy = table(0,0,0);
-    MOUSETRACK.xy.Properties.VariableNames = {'x','y','time'};
-    LOOPFUNC.currentSampleN = 0;
-else
-    LOOPFUNC.currentSampleN = size(MOUSETRACK.xy,1);
-end
-
-LOOPFUNC.currentSampleN = LOOPFUNC.currentSampleN + 1;
-
-MOUSETRACK.xy(LOOPFUNC.currentSampleN,:) = {0 0 0};
-
-MOUSETRACK.xy.x(LOOPFUNC.currentSampleN) = MOUSE.x;
-MOUSETRACK.xy.y(LOOPFUNC.currentSampleN) = MOUSE.y;
-MOUSETRACK.xy.time(LOOPFUNC.currentSampleN) = cogstd('sGetTime',-1);
 
 end
 
@@ -598,10 +602,19 @@ for iScale = 1:size(INPUT.origin,1)
         
         for iIncrement = 1:length(LOOPFUNC.currentCoords)
             if inpolygon(MOUSE.x,MOUSE.y,LOOPFUNC.currentCoords{iIncrement}(:,1), LOOPFUNC.currentCoords{iIncrement}(:,2))
-                
+                                
                 if ~isempty(varInput2.triggerForClick)
                     inputTrigger(varInput2.triggerForClick{1},varInput2.triggerForClick{2},varInput2.triggerForClick{3});
                 end
+                
+                % If forcing option, continue if wrong option selected, but
+                % after inputting the trigger.
+                
+                if varInput.forceOption > 0
+                    if iIncrement ~= varInput.forceOption
+                        continue
+                    end
+                end 
                 
                 optionSelected(iScale) = 1;
                 coordsFill(iScale) = iIncrement;
@@ -684,14 +697,6 @@ end
 %=====================================================================%
 %=====================================================================%
 
-%=====================================================================%
-%=====================================================================%
-%=====================================================================%
-
-%=====================================================================%
-%=====================================================================%
-%=====================================================================%
-
 function [SCALE, optionSelected, CONTBOX, scalesDrawn, flipTime] = drawScales(coordsFill,INPUT,varInput,optionSelected)
 
 % To stop repeated drawing, we will say here that the scale hasn't been
@@ -709,7 +714,7 @@ end
 
 CONTBOX = [];
 
-if ~isempty(varInput.contBoxOrigin) && ~varInput.mouseAutoCont
+if ~isempty(varInput.contBoxOrigin) && isempty(varInput.mouseAutoCont)
     
     CONTBOX.contBoxOrigin = varInput.contBoxOrigin;
     CONTBOX.contBoxSize = varInput.contBoxSize;
@@ -736,6 +741,13 @@ if ~isempty(varInput.cogentSXY)
     end
 end
 
+% Draw text (if applicable).
+
+if ~isempty(varInput.presentText)
+    cog_InsertText(varInput.presentText{1},'x',varInput.presentText{2},'y',varInput.presentText{3}, ...
+        varInput.presentText{4:end});
+end
+
 % Present all drawings.
 
 flipTime = cgflip(0,0,0);
@@ -743,10 +755,6 @@ flipTime = cgflip(0,0,0);
 scalesDrawn = 1;
 
 end
-
-%=====================================================================%
-%=====================================================================%
-%=====================================================================%
 
 %=====================================================================%
 %=====================================================================%
@@ -1029,6 +1037,32 @@ for iScale = 1:size(coordsFill,1)
     end
     
 end
+
+end
+
+%=====================================================================%
+%=====================================================================%
+%=====================================================================%
+
+function MOUSETRACK = trackMouse(MOUSETRACK)
+
+[MOUSE.x,MOUSE.y,MOUSE.bd,MOUSE.bp] = cgmouse;
+
+if ~isfield(MOUSETRACK,'xy')
+    MOUSETRACK.xy = table(0,0,0);
+    MOUSETRACK.xy.Properties.VariableNames = {'x','y','time'};
+    LOOPFUNC.currentSampleN = 0;
+else
+    LOOPFUNC.currentSampleN = size(MOUSETRACK.xy,1);
+end
+
+LOOPFUNC.currentSampleN = LOOPFUNC.currentSampleN + 1;
+
+MOUSETRACK.xy(LOOPFUNC.currentSampleN,:) = {0 0 0};
+
+MOUSETRACK.xy.x(LOOPFUNC.currentSampleN) = MOUSE.x;
+MOUSETRACK.xy.y(LOOPFUNC.currentSampleN) = MOUSE.y;
+MOUSETRACK.xy.time(LOOPFUNC.currentSampleN) = cogstd('sGetTime',-1);
 
 end
 

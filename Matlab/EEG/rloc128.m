@@ -56,8 +56,8 @@ varInput = [];
 for iVar = 1:2:length(varargin)
     varInput = setfield(varInput, varargin{iVar}, varargin{iVar+1});
 end;
-if ~isfield(varInput, 'elpFile'), varInput.elpFile = 'c:\Users\nhojt\OneDrive - The University of Liverpool\DOCUMENTS\BESA\egi_newhydrocel_129.elp'; end
-if ~isfield(varInput, 'sfpFile'), varInput.sfpFile = 'c:\Users\nhojt\OneDrive - The University of Liverpool\DOCUMENTS\BESA\egi_newhydrocel_129.sfp'; end
+if ~isfield(varInput, 'elpFile'), varInput.elpFile = 'c:\Users\hljtyson\OneDrive - The University of Liverpool\DOCUMENTS\BESA\egi_newhydrocel_129.elp'; end
+if ~isfield(varInput, 'sfpFile'), varInput.sfpFile = 'c:\Users\hljtyson\OneDrive - The University of Liverpool\DOCUMENTS\BESA\egi_newhydrocel_129.sfp'; end
 
 cfg = [];
 cfg.NEL = 129;
@@ -68,6 +68,11 @@ FID = fopen(varInput.sfpFile);
 for iLine = 1:132
     tline = fgets(FID);
     splitStr = strsplit(deblank(tline),' ');
+    for iIn = length(splitStr):-1:1
+        if isempty(splitStr{iIn})
+            splitStr(iIn) = [];
+        end
+    end
     if iLine >= 4
         SFP(iLine-3,:) = splitStr(2:end);
     end
