@@ -20,6 +20,10 @@ This is a repository including a set of MATLAB functions for carrying out a vari
 
   - If you prefer to do statistics in MATLAB, there are lots of functions for doing statistical analysis (ANOVA, permutation-based analysos, regression, post-hoc tests, etc.)
   
+5) GUIs
+  
+   - Some graphical use interfaces.
+  
 There are also some other functions that carry out tasks that don't fit into the above categories. There is a function documentation to give information on what inputs the functions require, any optional inputs, and what the function outputs.
 
 Note that optional argument inputs into functions follow the following format:
