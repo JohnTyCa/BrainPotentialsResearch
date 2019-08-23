@@ -4,7 +4,7 @@
 %
 % First Created 19/02/2019
 %
-% Current version = v1.1
+% Current version = v1.2
 %
 % Carries out statistics using the EEGLab statcond function. This function
 % takes a cell array of data and carries out (permutation-based) ANOVAs and
@@ -74,6 +74,7 @@
 %
 % 19/02/2019 (v1.0) -   V1.0 Created.
 % 25/02/2019 (v1.1) -   Implemented ability to plot data.
+% 15/08/2019 (v1.2) -   Implemented Cohen's D output.
 
 function [postHocStruct,figHandle] = postHocTesting_fullAnalysis(statData,varargin)
 

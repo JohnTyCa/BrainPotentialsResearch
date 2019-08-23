@@ -4,7 +4,7 @@
 %
 % First Created 15/08/2018
 %
-% Current version = v1.0
+% Current version = v1.1
 %
 % This function will carry out a repeated measures ANOVA on a table of
 % data.
@@ -79,7 +79,8 @@
 % UPDATE HISTORY:
 %
 % 15/08/2018 (v1.0) -   V1.0 Created.
-%
+% 12/08/2018 (v1.1) -   Implementation of Partial Eta Squared effect size.
+% 
 % ======================================================================= %
 
 function ANOVATable = RMANOVA(Data,FactorNames,FactorLevels,LevelIndices,varargin)
