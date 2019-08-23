@@ -22,7 +22,7 @@ This is a repository including a set of MATLAB functions for carrying out a vari
   
 5) GUIs
   
-   - Some graphical use interfaces.
+  - Some graphical use interfaces.
   
 There are also some other functions that carry out tasks that don't fit into the above categories. There is a function documentation to give information on what inputs the functions require, any optional inputs, and what the function outputs.
 
