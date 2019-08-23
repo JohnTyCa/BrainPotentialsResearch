@@ -4,7 +4,7 @@
 %
 % First Created 15/08/2018
 %
-% Current version = v1.0
+% Current version = v1.1
 %
 % This function will carry out a repeated measures ANOVA on a table of
 % data.
@@ -79,7 +79,8 @@
 % UPDATE HISTORY:
 %
 % 15/08/2018 (v1.0) -   V1.0 Created.
-%
+% 12/08/2018 (v1.1) -   Implementation of Partial Eta Squared effect size.
+% 
 % ======================================================================= %
 
 function ANOVATable = RMANOVA(Data,FactorNames,FactorLevels,LevelIndices,varargin)
@@ -100,15 +101,29 @@ for iFactor = 1:length(FactorNames)
     withinTable.(FactorNames{iFactor}) = cell(TotalVarN,1);
 end
 
-for iFactor = 1:length(FactorNames)
-    count1 = 0;
-    for iLevel = 1:size(LevelIndices{iFactor},1)
-        for iVar = 1:size(LevelIndices{iFactor},2)
-            count1 = count1 + 1;
-            withinTable.(FactorNames{iFactor})(LevelIndices{iFactor}{iLevel,iVar},1) = FactorLevels{iFactor}(iLevel);
+% if size(FactorNames,2) == 1
+%     
+%     count1 = 0;
+%     for iLevel = 1:size(LevelIndices{iFactor},1)
+%         for iVar = 1:size(LevelIndices{iFactor},2)
+%             count1 = count1 + 1;
+%             withinTable.(FactorNames{iFactor})(LevelIndices{iFactor}{iLevel,iVar},1) = FactorLevels{iFactor}(iLevel);
+%         end
+%     end
+%     
+% else
+    
+    for iFactor = 1:length(FactorNames)
+        count1 = 0;
+        for iLevel = 1:size(LevelIndices{iFactor},1)
+            for iVar = 1:size(LevelIndices{iFactor},2)
+                count1 = count1 + 1;
+                withinTable.(FactorNames{iFactor})(LevelIndices{iFactor}{iLevel,iVar},1) = FactorLevels{iFactor}(iLevel);
+            end
         end
     end
-end
+    
+% end
 
 % 1. Convert factors to categorical.
 withinTable2 = withinTable;
@@ -172,6 +187,17 @@ end
 interactionName = cat(2,tempStorage{:});
 
 ANOVATable = ranova(rm2, 'WithinModel',interactionName);
+
+% Encode Partial Eta Squared.
+
+ANOVATable.np2 = nan(height(ANOVATable),1);
+for iRow = 1:height(ANOVATable)
+    if contains(ANOVATable.Properties.RowNames{iRow},'Intercept')
+        ANOVATable.np2(iRow,1) = ANOVATable.SumSq(iRow,1) / (ANOVATable.SumSq(iRow,1) + ANOVATable.SumSq(iRow+1,1));
+    end
+end
+
+% Save the output to file.
 
 if ~isempty(varInput.SaveOutput)
     
