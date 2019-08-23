@@ -202,6 +202,14 @@ if length(DATACONFIG.ANOVA.F) > 1
     end
     
     % ======================================================================= %
+    % Calculate Cohen's D for each comparison.
+    % ======================================================================= %
+    
+    for iRow = 1:size(DATACONFIG.ANOVA.postHoc_Row,1)
+        DATACONFIG.ANOVA.postHoc_Row.CohensD(iRow,1) = CohensD(DATACONFIG.ANOVA.postHoc_Row.StatData{iRow,1},DATACONFIG.ANOVA.postHoc_Row.StatData{iRow,2});
+    end
+
+    % ======================================================================= %
     % Column Statistics.
     
     DATACONFIG.ANOVA.postHoc_Col = table();
@@ -226,6 +234,14 @@ if length(DATACONFIG.ANOVA.F) > 1
     end
     
     % ======================================================================= %
+    % Calculate Cohen's D for each comparison.
+    % ======================================================================= %
+    
+    for iRow = 1:size(DATACONFIG.ANOVA.postHoc_Col,1)
+        DATACONFIG.ANOVA.postHoc_Col.CohensD(iRow,1) = CohensD(DATACONFIG.ANOVA.postHoc_Col.StatData{iRow,1},DATACONFIG.ANOVA.postHoc_Col.StatData{iRow,2});
+    end
+    
+    % ======================================================================= %
     % Interaction Statistics.
     
     DATACONFIG.ANOVA.postHoc_Int = table();
@@ -247,6 +263,14 @@ if length(DATACONFIG.ANOVA.F) > 1
                 DATACONFIG.ANOVA.postHoc_Int.P(iCombo)] = statcond(DATACONFIG.ANOVA.postHoc_Int.StatData(iCombo,:),'method','perm','naccu',varInput.nPerm);
         end
         
+    end
+    
+    % ======================================================================= %
+    % Calculate Cohen's D for each comparison.
+    % ======================================================================= %
+    
+    for iRow = 1:size(DATACONFIG.ANOVA.postHoc_Int,1)
+        DATACONFIG.ANOVA.postHoc_Int.CohensD(iRow,1) = CohensD(DATACONFIG.ANOVA.postHoc_Int.StatData{iRow,1},DATACONFIG.ANOVA.postHoc_Int.StatData{iRow,2});
     end
     
 else
@@ -275,7 +299,17 @@ else
         
     end
     
+    % ======================================================================= %
+    % Calculate Cohen's D for each comparison.
+    % ======================================================================= %
+    
+    for iRow = 1:size(DATACONFIG.ANOVA.postHoc,1)
+        DATACONFIG.ANOVA.postHoc.CohensD(iRow,1) = CohensD(DATACONFIG.ANOVA.postHoc.StatData{iRow,1},DATACONFIG.ANOVA.postHoc.StatData{iRow,2});
+    end
+
 end
+
+
 
 % ======================================================================= %
 % Report Main Effects.
@@ -315,6 +349,7 @@ if length(DATACONFIG.ANOVA.F) > 1
         TEMP = [];
         TEMP.combo = DATACONFIG.ANOVA.postHoc_Row.Combos(iCombo,:);
         disp([strjoin(varInput.RowCondition(TEMP.combo),'_vs_') '; t(' num2str(DATACONFIG.ANOVA.postHoc_Row.df(iCombo,1)) ') = ' num2str(round(DATACONFIG.ANOVA.postHoc_Row.F(iCombo,1),3)) ', P = ' num2str(round(DATACONFIG.ANOVA.postHoc_Row.P(iCombo,1),4)) ...
+            '; Cohens D = ' num2str(round(DATACONFIG.ANOVA.postHoc_Row.CohensD(iCombo,1),4)) ...
             ' (Abs Mean Difference = ' num2str(round(abs(mean(DATACONFIG.ANOVA.postHoc_Row.StatData{iCombo,1}) - mean(DATACONFIG.ANOVA.postHoc_Row.StatData{iCombo,2})),3)) ')'])
     end
     
@@ -340,6 +375,7 @@ if length(DATACONFIG.ANOVA.F) > 1
         TEMP = [];
         TEMP.combo = DATACONFIG.ANOVA.postHoc_Col.Combos(iCombo,:);
         disp([strjoin(varInput.ColCondition(TEMP.combo),'_vs_') '; t(' num2str(DATACONFIG.ANOVA.postHoc_Col.df(iCombo,1)) ') = ' num2str(round(DATACONFIG.ANOVA.postHoc_Col.F(iCombo,1),3)) ', P = ' num2str(round(DATACONFIG.ANOVA.postHoc_Col.P(iCombo,1),4)) ...
+            '; Cohens D = ' num2str(round(DATACONFIG.ANOVA.postHoc_Col.CohensD(iCombo,1),4)) ...
             ' (Abs Mean Difference = ' num2str(round(abs(mean(DATACONFIG.ANOVA.postHoc_Col.StatData{iCombo,1}) - mean(DATACONFIG.ANOVA.postHoc_Col.StatData{iCombo,2})),3)) ')'])
     end
     
@@ -363,6 +399,7 @@ if length(DATACONFIG.ANOVA.F) > 1
         TEMP = [];
         TEMP.combo = DATACONFIG.ANOVA.postHoc_Int.Combos(iCombo,:);
         disp([strjoin(DATACONFIG.ANOVA.AllConds(TEMP.combo),'_vs_') '; t(' num2str(DATACONFIG.ANOVA.postHoc_Int.df(iCombo,1)) ') = ' num2str(round(DATACONFIG.ANOVA.postHoc_Int.F(iCombo,1),3)) ', P = ' num2str(round(DATACONFIG.ANOVA.postHoc_Int.P(iCombo,1),4)) ...
+            '; Cohens D = ' num2str(round(DATACONFIG.ANOVA.postHoc_Int.CohensD(iCombo,1),4)) ...
             ' (Abs Mean Difference = ' num2str(round(abs(mean(DATACONFIG.ANOVA.postHoc_Int.StatData{iCombo,1}) - mean(DATACONFIG.ANOVA.postHoc_Int.StatData{iCombo,2})),3)) ')'])
     end
     
@@ -398,6 +435,7 @@ if length(DATACONFIG.ANOVA.F) > 1
             TEMP = [];
             TEMP.combo = DATACONFIG.ANOVA.postHoc_Row.Combos(iCombo,:);
             fprintf(varInput.PrintToFile,[strjoin(varInput.RowCondition(TEMP.combo),'_vs_') '; t(' num2str(DATACONFIG.ANOVA.postHoc_Row.df(iCombo,1)) ') = ' num2str(round(DATACONFIG.ANOVA.postHoc_Row.F(iCombo,1),3)) ', P = ' num2str(round(DATACONFIG.ANOVA.postHoc_Row.P(iCombo,1),4)) ...
+                '; Cohens D = ' num2str(round(DATACONFIG.ANOVA.postHoc_Row.CohensD(iCombo,1),4)) ...
                 ' (Abs Mean Difference = ' num2str(round(abs(mean(DATACONFIG.ANOVA.postHoc_Row.StatData{iCombo,1}) - mean(DATACONFIG.ANOVA.postHoc_Row.StatData{iCombo,2})),3)) ')' '\n']);
         end
         
@@ -421,6 +459,7 @@ if length(DATACONFIG.ANOVA.F) > 1
             TEMP = [];
             TEMP.combo = DATACONFIG.ANOVA.postHoc_Col.Combos(iCombo,:);
             fprintf(varInput.PrintToFile,[strjoin(varInput.ColCondition(TEMP.combo),'_vs_') '; t(' num2str(DATACONFIG.ANOVA.postHoc_Col.df(iCombo,1)) ') = ' num2str(round(DATACONFIG.ANOVA.postHoc_Col.F(iCombo,1),3)) ', P = ' num2str(round(DATACONFIG.ANOVA.postHoc_Col.P(iCombo,1),4)) ...
+                '; Cohens D = ' num2str(round(DATACONFIG.ANOVA.postHoc_Col.CohensD(iCombo,1),4)) ...
                 ' (Abs Mean Difference = ' num2str(round(abs(mean(DATACONFIG.ANOVA.postHoc_Col.StatData{iCombo,1}) - mean(DATACONFIG.ANOVA.postHoc_Col.StatData{iCombo,2})),3)) ')' '\n']);
         end
         
@@ -442,6 +481,7 @@ if length(DATACONFIG.ANOVA.F) > 1
             TEMP = [];
             TEMP.combo = DATACONFIG.ANOVA.postHoc_Int.Combos(iCombo,:);
             fprintf(varInput.PrintToFile,[strjoin(DATACONFIG.ANOVA.AllConds(TEMP.combo),'_vs_') '; t(' num2str(DATACONFIG.ANOVA.postHoc_Int.df(iCombo,1)) ') = ' num2str(round(DATACONFIG.ANOVA.postHoc_Int.F(iCombo,1),3)) ', P = ' num2str(round(DATACONFIG.ANOVA.postHoc_Int.P(iCombo,1),4)) ...
+                '; Cohens D = ' num2str(round(DATACONFIG.ANOVA.postHoc_Int.CohensD(iCombo,1),4)) ...
                 ' (Abs Mean Difference = ' num2str(round(abs(mean(DATACONFIG.ANOVA.postHoc_Int.StatData{iCombo,1}) - mean(DATACONFIG.ANOVA.postHoc_Int.StatData{iCombo,2})),3)) ')' '\n']);
         end
         
@@ -474,6 +514,7 @@ else
         TEMP = [];
         TEMP.combo = DATACONFIG.ANOVA.postHoc.Combos(iCombo,:);
         disp([strjoin(DATACONFIG.ANOVA.AllConds(TEMP.combo),'_vs_') '; t(' num2str(DATACONFIG.ANOVA.postHoc.df(iCombo,1)) ') = ' num2str(round(DATACONFIG.ANOVA.postHoc.F(iCombo,1),3)) ', P = ' num2str(round(DATACONFIG.ANOVA.postHoc.P(iCombo,1),4)) ...
+            '; Cohens D = ' num2str(round(DATACONFIG.ANOVA.postHoc.CohensD(iCombo,1),4)) ...
             ' (Abs Mean Difference = ' num2str(round(abs(mean(DATACONFIG.ANOVA.postHoc.StatData{iCombo,1}) - mean(DATACONFIG.ANOVA.postHoc.StatData{iCombo,2})),3)) ')'])
     end
     
@@ -512,6 +553,7 @@ else
             TEMP = [];
             TEMP.combo = DATACONFIG.ANOVA.postHoc.Combos(iCombo,:);
             fprintf(varInput.PrintToFile,[strjoin(DATACONFIG.ANOVA.AllConds(TEMP.combo),'_vs_') '; t(' num2str(DATACONFIG.ANOVA.postHoc.df(iCombo,1)) ') = ' num2str(round(DATACONFIG.ANOVA.postHoc.F(iCombo,1),3)) ', P = ' num2str(round(DATACONFIG.ANOVA.postHoc.P(iCombo,1),4)) ...
+                '; Cohens D = ' num2str(round(DATACONFIG.ANOVA.postHoc.CohensD(iCombo,1),4)) ...
                 ' (Abs Mean Difference = ' num2str(round(abs(mean(DATACONFIG.ANOVA.postHoc.StatData{iCombo,1}) - mean(DATACONFIG.ANOVA.postHoc.StatData{iCombo,2})),3)) ')' '\n']);
         end
         
