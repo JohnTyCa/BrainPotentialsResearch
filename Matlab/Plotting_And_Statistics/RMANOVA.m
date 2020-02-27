@@ -4,7 +4,7 @@
 %
 % First Created 15/08/2018
 %
-% Current version = v2.0
+% Current version = v2.1
 %
 % This function will carry out a repeated measures ANOVA on a table of
 % data.
@@ -13,7 +13,9 @@
 % Required Inputs:
 % ======================================================================= %
 %
-% Data          -   Data must be a {nSubjects x nVariable} table.
+% Data          -   Data must be a NxM array with any number of dimensions.
+%                   Ensure that the last dimension is the number of
+%                   subjects.
 %
 % FactorNames   -   A cell containing the names of each of the factors. For
 %                   example, factors of {'GENDER' 'AGE'}.
@@ -24,18 +26,11 @@
 %
 %                       {{'MALE'; 'FEMALE'} {'A18-24'; 'A25-30'; 'A30PLUS'}}
 %
-% LevelIndices  -   A cell, the same length as 'FactorNames', indicating the
-%                   factor and level that each variable in 'Data' belongs
-%                   to.
-%
 % ======================================================================= %
 % Optional Inputs:
 % ======================================================================= %
 %
 % SaveOutput    -   Name of file to save data to (.txt format). (DEFAULT: [])
-%
-% PostHocData   -   Array containing same as "Data", but as
-%                   multi-dimensional array.
 %
 % nPerm         -   Number of permutations for permutation testing.
 %                   (DEFAULT: 5000)
@@ -87,56 +82,41 @@
 % 15/08/2018 (v1.0) -   V1.0 Created.
 % 12/08/2018 (v1.1) -   Implementation of Partial Eta Squared effect size.
 % 24/02/2020 (v2.0) -   Full posthoc testing.
-%
+% 27/02/2020 (v2.1) -   Now only requires a single multi-dimensional array
+%                       input to do all ANOVAs and posthoc tests.
+% 
 % ======================================================================= %
 
-function ANOVATable = RMANOVA(Data,FactorNames,FactorLevels,LevelIndices,varargin)
+function ANOVATable = RMANOVA(Data,FactorNames,FactorLevels,varargin)
 
 varInput = [];
 for iVar = 1:2:length(varargin)
     varInput = setfield(varInput, varargin{iVar}, varargin{iVar+1});
 end
 if ~isfield(varInput, 'SaveOutput'), varInput.SaveOutput = []; end
-if ~isfield(varInput, 'PostHocData'), varInput.PostHocData = []; end
 if ~isfield(varInput, 'nPerm'), varInput.nPerm = 5000; end
 
-TotalVarN = size(Data,2);
-fieldNames = Data.Properties.VariableNames;
+% Create the data table from the array.
 
-% % % % Create array from data.
-% % % 
-% % % ARRAY = [];
-% % % for iCond = 1:length(FactorLevels)
-% % %     ARRAY.AnalysisSize(iCond) = length(FactorLevels{iCond});
-% % % end
-% % % ARRAY.NLevels = prod(ARRAY.AnalysisSize);
-% % % ARRAY.DataNew = table();
-% % % for iCond = 1:size(Data,2)
-% % %     
-% % %     
-% % %     
-% % %     
-% % %     ARRAY.Indices = ones(1,length(POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor));
-% % %     for iCond = 1:ARRAY.NLevels
-% % %         for iFactor = 1:length(ARRAY.Indices)-1
-% % %             if ARRAY.Indices(iFactor) > length(FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(iFactor)})
-% % %                 ARRAY.Indices(iFactor) = 1;
-% % %                 ARRAY.Indices(iFactor+1) = ARRAY.Indices(iFactor+1) + 1;
-% % %             end
-% % %         end
-% % %         if iLevel == 1
-% % %             ARRAY.CondName{iCond,1} = FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(1)}{ARRAY.Indices(1)};
-% % %             ARRAY.CondName2 = ARRAY.CondName;
-% % %         else
-% % %             for iFactor = 1:length(ARRAY.Indices)-1
-% % %                 ARRAY.CondName{iCond,iFactor} = FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(iFactor)}{ARRAY.Indices(iFactor)};
-% % %                 ARRAY.CondName{iCond,iFactor+1} = FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(iFactor+1)}{ARRAY.Indices(iFactor+1)};
-% % %             end
-% % %             ARRAY.CondName2{iCond,1} = strjoin(ARRAY.CondName(iCond,:),'_');
-% % %         end
-% % %         ARRAY.Indices(1) = ARRAY.Indices(1) + 1;
-% % %     end
-% % % end
+DataSizes = size(Data);
+NSub = DataSizes(end);
+DataSizes(end) = [];
+
+LinearIndices = reshape(1:numel(mean(Data,length(DataSizes)+1)), DataSizes);
+LevelIndices = cell(1,length(FactorLevels));
+for iFactor = 1:length(FactorLevels)
+    for iLevel = 1:length(FactorLevels{iFactor})
+        IndexLabel = repmat(':,',1,length(FactorLevels));
+        IndexLabel((2*iFactor)-1) = num2str(iLevel);
+        IndexLabel(end) = [];
+        LevelIndices{iFactor}(iLevel,:) = eval(['reshape(LinearIndices(' IndexLabel '),1,[])']);
+    end
+    LevelIndices{iFactor} = num2cell(LevelIndices{iFactor});
+end
+
+Data_Table = array2table(reshape(Data,prod(DataSizes),NSub)');
+
+TotalVarN = size(Data_Table,2);
 
 % Create a table reflecting the within subject factors and their levels.
 
@@ -213,7 +193,7 @@ for iVar = 1:size(withinTable,1)
     newVarNames{iVar} = cat(2,tempStorage{:});
 end
 
-newData = Data;
+newData = Data_Table;
 newData.Properties.VariableNames = newVarNames;
 
 rm2 = fitrm(newData,[variablesToInclude '~1'],'WithinDesign',withinTable2);
@@ -238,82 +218,6 @@ MAUCHLY = [];
 MAUCHLY = mauchly(rm2,CovarMatrix);
 EPSILON = [];
 EPSILON = epsilon(rm2,CovarMatrix);
-
-% % % 
-% % % MAUCHLY = [];
-% % % 
-% % % ComboSize = 1; LevelCount = 0; Finished = 0;
-% % % while ~Finished
-% % %     LevelCount = LevelCount + 1;
-% % %     MAUCHLY.(['INT' num2str(LevelCount)]) = nchoosek(1:length(FactorNames),ComboSize);
-% % %     ComboSize = ComboSize + 1;
-% % %     if isempty(MAUCHLY.(['INT' num2str(LevelCount)]))
-% % %         MAUCHLY = rmfield(MAUCHLY,['INT' num2str(LevelCount)]);
-% % %         Finished = 1;
-% % %     end
-% % % end
-% % % MAUCHLY.NLevels = length(fieldnames(MAUCHLY));
-% % % MAUCHLY.NFactors = 1:length(FactorNames);
-% % % 
-% % % MAUCHLY.AnalysisCount = 0;
-% % % for iLevel = 1:MAUCHLY.NLevels
-% % %     for iAnalysis = 1:size(MAUCHLY.(['INT' num2str(iLevel)]),1)
-% % %         
-% % %         MAUCHLY.AnalysisCount = MAUCHLY.AnalysisCount + 1;
-% % %         
-% % %         MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Factor = MAUCHLY.(['INT' num2str(iLevel)])(iAnalysis,:);
-% % %         MAUCHLY.Analysis(MAUCHLY.AnalysisCount).FactorNames = FactorNames(MAUCHLY.(['INT' num2str(iLevel)])(iAnalysis,:))
-% % %         
-% % %         MAUCHLY.Analysis(MAUCHLY.AnalysisCount).DimToAv = flipud(find(~ismember(MAUCHLY.NFactors,MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Factor))');
-% % %         
-% % %         MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data = varInput.PostHocData;
-% % %         for iAv = 1:length(MAUCHLY.Analysis(MAUCHLY.AnalysisCount).DimToAv)
-% % %             MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data = squeeze(mean(MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data,MAUCHLY.Analysis(MAUCHLY.AnalysisCount).DimToAv(iAv)));
-% % %         end
-% % %         
-% % %         TEMP = [];
-% % %         TEMP.AnalysisSize = size(MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data);
-% % %         TEMP.AnalysisSize(end) = [];
-% % %         TEMP.NLevels = prod(TEMP.AnalysisSize);
-% % %         
-% % %         TEMP.Indices = ones(1,length(MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Factor));
-% % %         
-% % %         for iCond = 1:TEMP.NLevels
-% % %             for iFactor = 1:length(TEMP.Indices)-1
-% % %                 if TEMP.Indices(iFactor) > length(FactorLevels{MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Factor(iFactor)})
-% % %                     TEMP.Indices(iFactor) = 1;
-% % %                     TEMP.Indices(iFactor+1) = TEMP.Indices(iFactor+1) + 1;
-% % %                 end
-% % %             end
-% % %             if iLevel == 1
-% % %                 TEMP.CondName{iCond,1} = FactorLevels{MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Factor(1)}{TEMP.Indices(1)};
-% % %                 TEMP.CondName2 = TEMP.CondName;
-% % %             else
-% % %                 for iFactor = 1:length(TEMP.Indices)-1
-% % %                     TEMP.CondName{iCond,iFactor} = FactorLevels{MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Factor(iFactor)}{TEMP.Indices(iFactor)};
-% % %                     TEMP.CondName{iCond,iFactor+1} = FactorLevels{MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Factor(iFactor+1)}{TEMP.Indices(iFactor+1)};
-% % %                 end
-% % %                 TEMP.CondName2{iCond,1} = strjoin(TEMP.CondName(iCond,:),'_');
-% % %             end
-% % %             TEMP.Indices(1) = TEMP.Indices(1) + 1;
-% % %         end
-% % %         
-% % %         MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data_Resize = reshape(MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data,TEMP.NLevels,size(MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data,ndims(MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data)))
-% % %         MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Conditions = TEMP.CondName2;
-% % %         MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data_Resize = MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data_Resize';
-% % %         MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data_Resize = array2table(MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data_Resize);
-% % %         MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data_Resize.Properties.VariableNames = MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Conditions;
-% % %         VariablesToInclude = [MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data_Resize.Properties.VariableNames{1} '-' MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data_Resize.Properties.VariableNames{end} '~1'];
-% % %         WithinTable2 = array2table(TEMP.CondName);
-% % %         WithinTable2.Properties.VariableNames = MAUCHLY.Analysis(MAUCHLY.AnalysisCount).FactorNames;
-% % %         
-% % %         rm2 = fitrm(MAUCHLY.Analysis(MAUCHLY.AnalysisCount).Data_Resize,VariablesToInclude,'WithinDesign',WithinTable2);
-% % % 
-% % %         MAUCHLY.Analysis(MAUCHLY.AnalysisCount).MauchlysStat = mauchly(rm2);
-% % %         MAUCHLY.Analysis(MAUCHLY.AnalysisCount).EpsilonStat = epsilon(rm2);
-% % %         
-% % %     end
-% % % end
 
 % Encode Partial Eta Squared & adjusted df.
 
