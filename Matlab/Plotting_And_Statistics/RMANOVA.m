@@ -6,7 +6,7 @@
 %
 % Current version = v2.1
 %
-% This function will carry out a repeated measures ANOVA on a table of
+% This function will carry out a repeated measures ANOVA on an array of
 % data.
 %
 % ======================================================================= %
@@ -46,29 +46,13 @@
 % Example
 % ======================================================================= %
 %
-% Data = rand(25,6,1);
-% Data = array2table(Data);
+% Data = rand(2,3,25);
 %
 % FactorNames = {'Age' 'Gender'}
 %
 % FactorLevels = {{'Female'; 'Male'} {'A18_24'; 'A25_30'; 'A30Plus'}}
 %
-% LevelIndices = {{1 2 3; 4 5 6} {1 4; 2 5; 3 6}} % Here, variables 1, 2
-%                                                   and 3 in the table
-%                                                   correspond to
-%                                                   'Female', and
-%                                                   variables 4, 5 and 6
-%                                                   correspond to 'Male'.
-%                                                   Secondly, variables 1
-%                                                   and 4 correspond to
-%                                                   'A18-24', variables 2
-%                                                   and 5 correspond to
-%                                                   'A25-30', and
-%                                                   variables 3 and 6
-%                                                   correspond to
-%                                                   'A30Plus'.
-%
-% ANOVATable = RMANOVA(Data,FactorNames,FactorLevels,LevelIndices);
+% ANOVATable = RMANOVA(Data,FactorNames,FactorLevels);
 %
 % ======================================================================= %
 % Dependencies.
@@ -84,7 +68,7 @@
 % 24/02/2020 (v2.0) -   Full posthoc testing.
 % 27/02/2020 (v2.1) -   Now only requires a single multi-dimensional array
 %                       input to do all ANOVAs and posthoc tests.
-% 
+%
 % ======================================================================= %
 
 function ANOVATable = RMANOVA(Data,FactorNames,FactorLevels,varargin)
@@ -102,7 +86,12 @@ DataSizes = size(Data);
 NSub = DataSizes(end);
 DataSizes(end) = [];
 
-LinearIndices = reshape(1:numel(mean(Data,length(DataSizes)+1)), DataSizes);
+if length(DataSizes) > 1
+    LinearIndices = reshape(1:numel(mean(Data,length(DataSizes)+1)), DataSizes);
+else
+    LinearIndices = 1:numel(mean(Data,length(DataSizes)+1));
+end
+
 LevelIndices = cell(1,length(FactorLevels));
 for iFactor = 1:length(FactorLevels)
     for iLevel = 1:length(FactorLevels{iFactor})
@@ -231,19 +220,19 @@ for iRow = 1:height(ANOVATable)
     end
     EpsilonIndex = ceil(iRow/2);
     ANOVATable.DF_GG(iRow,1) = ANOVATable.DF(iRow,1) * EPSILON.GreenhouseGeisser(EpsilonIndex,1);
-    ANOVATable.DF_HF(iRow,1) = ANOVATable.DF(iRow,1) * EPSILON.HuynhFeldt(EpsilonIndex,1);    
-    ANOVATable.DF_LB(iRow,1) = ANOVATable.DF(iRow,1) * EPSILON.LowerBound(EpsilonIndex,1);    
+    ANOVATable.DF_HF(iRow,1) = ANOVATable.DF(iRow,1) * EPSILON.HuynhFeldt(EpsilonIndex,1);
+    ANOVATable.DF_LB(iRow,1) = ANOVATable.DF(iRow,1) * EPSILON.LowerBound(EpsilonIndex,1);
 end
 
 %% Post-hoc testing.
 
-if ~isempty(varInput.PostHocData)
-    
-    % ======================================================================= %
-    % Determine number of interactions.
-    % ======================================================================= %
-    
-    POSTHOC = [];
+% ======================================================================= %
+% Determine number of interactions.
+% ======================================================================= %
+
+POSTHOC = [];
+
+if length(DataSizes) > 1
     
     ComboSize = 1; LevelCount = 0; Finished = 0;
     
@@ -258,86 +247,92 @@ if ~isempty(varInput.PostHocData)
     end
     POSTHOC.NLevels = length(fieldnames(POSTHOC));
     POSTHOC.NFactors = 1:length(FactorNames);
-    
-    % ======================================================================= %
-    %
-    % ======================================================================= %
-    
-    POSTHOC.Analysis = struct();
-    
-    POSTHOC.AnalysisCount = 0;
-    for iLevel = 1:POSTHOC.NLevels
         
-        for iAnalysis = 1:size(POSTHOC.(['INT' num2str(iLevel)]),1)
-            
-            POSTHOC.AnalysisCount = POSTHOC.AnalysisCount + 1;
-            
-            POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor = POSTHOC.(['INT' num2str(iLevel)])(iAnalysis,:);
-            POSTHOC.Analysis(POSTHOC.AnalysisCount).FactorNames = FactorNames(POSTHOC.(['INT' num2str(iLevel)])(iAnalysis,:))
-            
-            POSTHOC.Analysis(POSTHOC.AnalysisCount).DimToAv = flipud(find(~ismember(POSTHOC.NFactors,POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor))');
-            
-            POSTHOC.Analysis(POSTHOC.AnalysisCount).Data = varInput.PostHocData;
-            for iAv = 1:length(POSTHOC.Analysis(POSTHOC.AnalysisCount).DimToAv)
-                POSTHOC.Analysis(POSTHOC.AnalysisCount).Data = squeeze(mean(POSTHOC.Analysis(POSTHOC.AnalysisCount).Data,POSTHOC.Analysis(POSTHOC.AnalysisCount).DimToAv(iAv)));
+else
+    
+    POSTHOC.INT1 = 1;
+    POSTHOC.NLevels = 1;
+    POSTHOC.NFactors = 1;
+        
+end
+
+% ======================================================================= %
+%
+% ======================================================================= %
+
+POSTHOC.Analysis = struct();
+
+POSTHOC.AnalysisCount = 0;
+for iLevel = 1:POSTHOC.NLevels
+    
+    for iAnalysis = 1:size(POSTHOC.(['INT' num2str(iLevel)]),1)
+        
+        POSTHOC.AnalysisCount = POSTHOC.AnalysisCount + 1;
+        
+        POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor = POSTHOC.(['INT' num2str(iLevel)])(iAnalysis,:);
+        POSTHOC.Analysis(POSTHOC.AnalysisCount).FactorNames = FactorNames(POSTHOC.(['INT' num2str(iLevel)])(iAnalysis,:))
+        
+        POSTHOC.Analysis(POSTHOC.AnalysisCount).DimToAv = flipud(find(~ismember(POSTHOC.NFactors,POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor))');
+        
+        POSTHOC.Analysis(POSTHOC.AnalysisCount).Data = Data;
+        for iAv = 1:length(POSTHOC.Analysis(POSTHOC.AnalysisCount).DimToAv)
+            POSTHOC.Analysis(POSTHOC.AnalysisCount).Data = squeeze(mean(POSTHOC.Analysis(POSTHOC.AnalysisCount).Data,POSTHOC.Analysis(POSTHOC.AnalysisCount).DimToAv(iAv)));
+        end
+        
+        TEMP = [];
+        TEMP.AnalysisSize = size(POSTHOC.Analysis(POSTHOC.AnalysisCount).Data);
+        TEMP.AnalysisSize(end) = [];
+        TEMP.NLevels = prod(TEMP.AnalysisSize);
+        
+        TEMP.Indices = ones(1,length(POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor));
+        
+        for iCond = 1:TEMP.NLevels
+            for iFactor = 1:length(TEMP.Indices)-1
+                if TEMP.Indices(iFactor) > length(FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(iFactor)})
+                    TEMP.Indices(iFactor) = 1;
+                    TEMP.Indices(iFactor+1) = TEMP.Indices(iFactor+1) + 1;
+                end
             end
-            
-            TEMP = [];
-            TEMP.AnalysisSize = size(POSTHOC.Analysis(POSTHOC.AnalysisCount).Data);
-            TEMP.AnalysisSize(end) = [];
-            TEMP.NLevels = prod(TEMP.AnalysisSize);
-            
-            TEMP.Indices = ones(1,length(POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor));
-            
-            for iCond = 1:TEMP.NLevels
+            if iLevel == 1
+                TEMP.CondName{iCond,1} = FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(1)}{TEMP.Indices(1)};
+                TEMP.CondName2 = TEMP.CondName;
+            else
                 for iFactor = 1:length(TEMP.Indices)-1
-                    if TEMP.Indices(iFactor) > length(FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(iFactor)})
-                        TEMP.Indices(iFactor) = 1;
-                        TEMP.Indices(iFactor+1) = TEMP.Indices(iFactor+1) + 1;
-                    end
+                    TEMP.CondName{iCond,iFactor} = FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(iFactor)}{TEMP.Indices(iFactor)};
+                    TEMP.CondName{iCond,iFactor+1} = FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(iFactor+1)}{TEMP.Indices(iFactor+1)};
                 end
-                if iLevel == 1
-                    TEMP.CondName{iCond,1} = FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(1)}{TEMP.Indices(1)};
-                    TEMP.CondName2 = TEMP.CondName;
-                else
-                    for iFactor = 1:length(TEMP.Indices)-1
-                        TEMP.CondName{iCond,iFactor} = FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(iFactor)}{TEMP.Indices(iFactor)};
-                        TEMP.CondName{iCond,iFactor+1} = FactorLevels{POSTHOC.Analysis(POSTHOC.AnalysisCount).Factor(iFactor+1)}{TEMP.Indices(iFactor+1)};
-                    end
-                    TEMP.CondName2{iCond,1} = strjoin(TEMP.CondName(iCond,:),'_');
-                end
-                TEMP.Indices(1) = TEMP.Indices(1) + 1;
+                TEMP.CondName2{iCond,1} = strjoin(TEMP.CondName(iCond,:),'_');
             end
-            
-            POSTHOC.Analysis(POSTHOC.AnalysisCount).Data_Resize = reshape(POSTHOC.Analysis(POSTHOC.AnalysisCount).Data,TEMP.NLevels,size(POSTHOC.Analysis(POSTHOC.AnalysisCount).Data,ndims(POSTHOC.Analysis(POSTHOC.AnalysisCount).Data)))
-            
-            POSTHOC.Analysis(POSTHOC.AnalysisCount).Conditions = TEMP.CondName2;
-            
-            TEMP.Combos = nchoosek(1:TEMP.NLevels,2);
-            
-            POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc = struct();
-            for iCombo = 1:size(TEMP.Combos,1)
-                POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Pair = TEMP.Combos(iCombo,:);
-                POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Levels = TEMP.CondName2(TEMP.Combos(iCombo,:));
-                POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data = POSTHOC.Analysis(POSTHOC.AnalysisCount).Data_Resize(TEMP.Combos(iCombo,:),:);
-                POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{1} = POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data(1,:);
-                POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{2} = POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data(2,:);
-                POSTHOC.Analysis(POSTHOC.AnalysisCount).FDRData(:,iCombo) = POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{1} - POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{2};
-                [   POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).F, ...
-                    POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).df, ...
-                    POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).P] = statcond(POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell);
-                POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).CohensD = CohensD(POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{1},POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{2});
-                [   ~, ...
-                    ~, ...
-                    POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).P_Perm] = statcond(POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell,'method','perm','naccu',varInput.nPerm);
-            end
-            
-            FDR = [];
-            [FDR.pval,~,~,~,~]=mult_comp_perm_t1(POSTHOC.Analysis(POSTHOC.AnalysisCount).FDRData,varInput.nPerm);
-            for iCombo = 1:size(POSTHOC.Analysis(POSTHOC.AnalysisCount).FDRData,2)
-                POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).P_FDR = FDR.pval(iCombo);
-            end
-            
+            TEMP.Indices(1) = TEMP.Indices(1) + 1;
+        end
+        
+        POSTHOC.Analysis(POSTHOC.AnalysisCount).Data_Resize = reshape(POSTHOC.Analysis(POSTHOC.AnalysisCount).Data,TEMP.NLevels,size(POSTHOC.Analysis(POSTHOC.AnalysisCount).Data,ndims(POSTHOC.Analysis(POSTHOC.AnalysisCount).Data)))
+        
+        POSTHOC.Analysis(POSTHOC.AnalysisCount).Conditions = TEMP.CondName2;
+        
+        TEMP.Combos = nchoosek(1:TEMP.NLevels,2);
+        
+        POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc = struct();
+        for iCombo = 1:size(TEMP.Combos,1)
+            POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Pair = TEMP.Combos(iCombo,:);
+            POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Levels = TEMP.CondName2(TEMP.Combos(iCombo,:));
+            POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data = POSTHOC.Analysis(POSTHOC.AnalysisCount).Data_Resize(TEMP.Combos(iCombo,:),:);
+            POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{1} = POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data(1,:);
+            POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{2} = POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data(2,:);
+            POSTHOC.Analysis(POSTHOC.AnalysisCount).FDRData(:,iCombo) = POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{1} - POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{2};
+            [   POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).F, ...
+                POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).df, ...
+                POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).P] = statcond(POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell);
+            POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).CohensD = CohensD(POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{1},POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell{2});
+            [   ~, ...
+                ~, ...
+                POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).P_Perm] = statcond(POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).Data_Cell,'method','perm','naccu',varInput.nPerm);
+        end
+        
+        FDR = [];
+        [FDR.pval,~,~,~,~]=mult_comp_perm_t1(POSTHOC.Analysis(POSTHOC.AnalysisCount).FDRData,varInput.nPerm);
+        for iCombo = 1:size(POSTHOC.Analysis(POSTHOC.AnalysisCount).FDRData,2)
+            POSTHOC.Analysis(POSTHOC.AnalysisCount).PostHoc(iCombo).P_FDR = FDR.pval(iCombo);
         end
         
     end
@@ -503,7 +498,7 @@ if ~isempty(varInput.SaveOutput)
     fprintf(fileID,'\n========================================================\n');
     fprintf(fileID,'Mauchly''s Test');
     fprintf(fileID,'\n========================================================\n\n');
-
+    
     for iLevel = 1:(height(ANOVATable))/2
         RowName = ANOVATable.Properties.RowNames{(iLevel*2)-1};
         fprintf(fileID,[RowName '; W(' num2str(MAUCHLY.DF(iLevel,1)) ') = ' num2str(MAUCHLY.W(iLevel,1)) ', P = ' num2str(MAUCHLY.pValue(iLevel,1)) ', Chi = ' num2str(MAUCHLY.ChiStat(iLevel,1)) '\n']);
@@ -512,7 +507,7 @@ if ~isempty(varInput.SaveOutput)
     fprintf(fileID,'\n========================================================\n');
     fprintf(fileID,'Epsilon Values')
     fprintf(fileID,'\n========================================================\n\n');
-
+    
     for iLevel = 1:(height(ANOVATable))/2
         RowName = ANOVATable.Properties.RowNames{(iLevel*2)-1};
         fprintf(fileID,[RowName '; Uncorr = ' num2str(EPSILON.Uncorrected(iLevel,1)) '; GG = ' num2str(EPSILON.GreenhouseGeisser(iLevel,1)) '; HF = ' num2str(EPSILON.HuynhFeldt(iLevel,1)) '; LB = ' num2str(EPSILON.LowerBound(iLevel,1)) '\n']);
@@ -520,36 +515,32 @@ if ~isempty(varInput.SaveOutput)
     
     % Print PostHoc.
     
-    if ~isempty(varInput.PostHocData)
+    for iAnalysis = 1:length(POSTHOC.Analysis)
+        fprintf(fileID,'\n\n========================================================\n');
+        fprintf(fileID,['Effect = ' strjoin(POSTHOC.Analysis(iAnalysis).FactorNames,' + ')]);
+        fprintf(fileID,['\n\nMauchly''s Test; W(' num2str(MAUCHLY.DF(iAnalysis+1,1)) ') = ' num2str(MAUCHLY.W(iAnalysis+1,1)) ', P = ' num2str(MAUCHLY.pValue(iAnalysis+1,1)) ', Chi = ' num2str(MAUCHLY.ChiStat(iAnalysis+1,1)) '\n']);
         
-        for iAnalysis = 1:length(POSTHOC.Analysis)
-            fprintf(fileID,'\n\n========================================================\n');
-            fprintf(fileID,['Effect = ' strjoin(POSTHOC.Analysis(iAnalysis).FactorNames,' + ')]);
-            fprintf(fileID,['\n\nMauchly''s Test; W(' num2str(MAUCHLY.DF(iAnalysis+1,1)) ') = ' num2str(MAUCHLY.W(iAnalysis+1,1)) ', P = ' num2str(MAUCHLY.pValue(iAnalysis+1,1)) ', Chi = ' num2str(MAUCHLY.ChiStat(iAnalysis+1,1)) '\n']);
-            
-            if MAUCHLY.W(iAnalysis+1,1) == 1
-                fprintf(fileID,'Ignore Sphericity; use regular ANOVA\n');
-            elseif MAUCHLY.pValue(iAnalysis+1,1) < 0.05
-                fprintf(fileID,'SPHERICITY VIOLATED (P < .05); USE GG/HF/LB\n');
-            else
-                fprintf(fileID,'Sphericity Okay (P >= .05); use Regular\n');
-            end
-            
-            fprintf(fileID,['\nRegular - F(' num2str(ANOVATable.DF(iAnalysis*2+1)) ',' num2str(ANOVATable.DF(iAnalysis*2+2)) ') = ' num2str(round(ANOVATable.F(iAnalysis*2+1),3)) ', P = ' num2str(round(ANOVATable.pValue(iAnalysis*2+1),3)) ', np2 = ' num2str(round(ANOVATable.np2(iAnalysis*2+1),3))]);
-            fprintf(fileID,['\nGreenhouseGeisser - F(' num2str(ANOVATable.DF_GG(iAnalysis*2+1)) ',' num2str(ANOVATable.DF_GG(iAnalysis*2+2)) ') = ' num2str(round(ANOVATable.F(iAnalysis*2+1),3)) ', P = ' num2str(round(ANOVATable.pValueGG(iAnalysis*2+1),3)) ', np2 = ' num2str(round(ANOVATable.np2(iAnalysis*2+1),3))]);
-            fprintf(fileID,['\nHuynhFeldt - F(' num2str(ANOVATable.DF_HF(iAnalysis*2+1)) ',' num2str(ANOVATable.DF_HF(iAnalysis*2+2)) ') = ' num2str(round(ANOVATable.F(iAnalysis*2+1),3)) ', P = ' num2str(round(ANOVATable.pValueHF(iAnalysis*2+1),3)) ', np2 = ' num2str(round(ANOVATable.np2(iAnalysis*2+1),3))]);
-            fprintf(fileID,['\nLowerBound - F(' num2str(ANOVATable.DF_LB(iAnalysis*2+1)) ',' num2str(ANOVATable.DF_LB(iAnalysis*2+2)) ') = ' num2str(round(ANOVATable.F(iAnalysis*2+1),3)) ', P = ' num2str(round(ANOVATable.pValueLB(iAnalysis*2+1),3)) ', np2 = ' num2str(round(ANOVATable.np2(iAnalysis*2+1),3))]);
-            fprintf(fileID,'\n========================================================\n\n');
-            for iCond = 1:length(POSTHOC.Analysis(iAnalysis).Conditions)
-                fprintf(fileID,[POSTHOC.Analysis(iAnalysis).Conditions{iCond} '; M = ' num2str(round(mean(POSTHOC.Analysis(iAnalysis).Data_Resize(iCond,:)),3)) ' (SD = ' num2str(round(std(POSTHOC.Analysis(iAnalysis).Data_Resize(iCond,:)),3)) ')\n']);
-            end
-            fprintf(fileID,'\n');
-            for iLevel = 1:length(POSTHOC.Analysis(iAnalysis).PostHoc)
-                fprintf(fileID,[strjoin(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).Levels,' vs ') '; ']);
-                fprintf(fileID,['t(' num2str(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).df) ') = '  num2str(round(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).F,3)) ', P = ' num2str(round(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).P_Perm,3)) ' (Corrected = ' num2str(round(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).P_FDR,3)) '), d = ' num2str(round(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).CohensD,3)) '\n']);
-            end
+        if MAUCHLY.W(iAnalysis+1,1) == 1
+            fprintf(fileID,'Ignore Sphericity; use regular ANOVA\n');
+        elseif MAUCHLY.pValue(iAnalysis+1,1) < 0.05
+            fprintf(fileID,'SPHERICITY VIOLATED (P < .05); USE GG/HF/LB\n');
+        else
+            fprintf(fileID,'Sphericity Okay (P >= .05); use Regular\n');
         end
         
+        fprintf(fileID,['\nRegular - F(' num2str(ANOVATable.DF(iAnalysis*2+1)) ',' num2str(ANOVATable.DF(iAnalysis*2+2)) ') = ' num2str(round(ANOVATable.F(iAnalysis*2+1),3)) ', P = ' num2str(round(ANOVATable.pValue(iAnalysis*2+1),3)) ', np2 = ' num2str(round(ANOVATable.np2(iAnalysis*2+1),3))]);
+        fprintf(fileID,['\nGreenhouseGeisser - F(' num2str(ANOVATable.DF_GG(iAnalysis*2+1)) ',' num2str(ANOVATable.DF_GG(iAnalysis*2+2)) ') = ' num2str(round(ANOVATable.F(iAnalysis*2+1),3)) ', P = ' num2str(round(ANOVATable.pValueGG(iAnalysis*2+1),3)) ', np2 = ' num2str(round(ANOVATable.np2(iAnalysis*2+1),3))]);
+        fprintf(fileID,['\nHuynhFeldt - F(' num2str(ANOVATable.DF_HF(iAnalysis*2+1)) ',' num2str(ANOVATable.DF_HF(iAnalysis*2+2)) ') = ' num2str(round(ANOVATable.F(iAnalysis*2+1),3)) ', P = ' num2str(round(ANOVATable.pValueHF(iAnalysis*2+1),3)) ', np2 = ' num2str(round(ANOVATable.np2(iAnalysis*2+1),3))]);
+        fprintf(fileID,['\nLowerBound - F(' num2str(ANOVATable.DF_LB(iAnalysis*2+1)) ',' num2str(ANOVATable.DF_LB(iAnalysis*2+2)) ') = ' num2str(round(ANOVATable.F(iAnalysis*2+1),3)) ', P = ' num2str(round(ANOVATable.pValueLB(iAnalysis*2+1),3)) ', np2 = ' num2str(round(ANOVATable.np2(iAnalysis*2+1),3))]);
+        fprintf(fileID,'\n========================================================\n\n');
+        for iCond = 1:length(POSTHOC.Analysis(iAnalysis).Conditions)
+            fprintf(fileID,[POSTHOC.Analysis(iAnalysis).Conditions{iCond} '; M = ' num2str(round(mean(POSTHOC.Analysis(iAnalysis).Data_Resize(iCond,:)),3)) ' (SD = ' num2str(round(std(POSTHOC.Analysis(iAnalysis).Data_Resize(iCond,:)),3)) ')\n']);
+        end
+        fprintf(fileID,'\n');
+        for iLevel = 1:length(POSTHOC.Analysis(iAnalysis).PostHoc)
+            fprintf(fileID,[strjoin(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).Levels,' vs ') '; ']);
+            fprintf(fileID,['t(' num2str(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).df) ') = '  num2str(round(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).F,3)) ', P = ' num2str(round(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).P_Perm,3)) ' (Corrected = ' num2str(round(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).P_FDR,3)) '), d = ' num2str(round(POSTHOC.Analysis(iAnalysis).PostHoc(iLevel).CohensD,3)) '\n']);
+        end
     end
     
     fclose(fileID);

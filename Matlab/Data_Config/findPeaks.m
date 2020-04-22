@@ -8,7 +8,7 @@
 %
 % Will find peaks within a given array of Nx1 / 1xN. NOTE THAT NO
 % LOGIC IS GIVEN FOR WHAT SHOULD HAPPEN WHEN A PEAK IS EQUAL FOR TWO
-% CONSECUTIVE TIME POINTS (YET).
+% CONSECUTIVE TIME POINTSs.
 % 
 % ======================================================================= %
 % Required Inputs:
@@ -19,16 +19,13 @@
 %               within the latency (Peak Latency +/- overlap), it will find
 %               the largest peak and remove the others.
 % threshold -   This will only find peaks that occur above a certain
-%               percentage of maximum power. Since the data is normalised
-%               between 0 and 1 within this script, the threshold should be
-%               between 0 and 1.
+%               percentage of maximum power. If data is normalised, then
+%               value is between 0 and 1.
 % norm      -   Whether to normalise data first between 0 and 1.
 %
 % ======================================================================= %
 % Optional Inputs:
 % ======================================================================= %
-%
-% 
 % 
 % ======================================================================= %
 % Outputs:
@@ -46,8 +43,6 @@
 % ======================================================================= %
 % Dependencies.
 % ======================================================================= %
-% 
-% 
 % 
 % ======================================================================= %
 % UPDATE HISTORY:

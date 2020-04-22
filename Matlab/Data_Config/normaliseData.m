@@ -4,7 +4,7 @@
 %
 % First Created 15/10/2018
 %
-% Current version = v1.0
+% Current version = v1.1
 %
 % Normalise an array between X and Y.
 % 
@@ -19,8 +19,6 @@
 % ======================================================================= %
 % Optional Inputs:
 % ======================================================================= %
-%
-% 
 % 
 % ======================================================================= %
 % Outputs:
@@ -38,17 +36,23 @@
 % Dependencies.
 % ======================================================================= %
 % 
-% 
-% 
 % ======================================================================= %
 % UPDATE HISTORY:
 %
 % 15/10/2018 (v1.0) -   V1.0 Created.
-%
+% 24/03/2020 (v1.1) -   Handles multi-dimensional arrays.
+% 
 % ======================================================================= %
 
 function normalised = normaliseData(data,x,y)
 
-normalised = x+(y-x)*(data-min(data))/( max(data)-min(data));
+MaxData = data;
+MinData = data;
+for iDim = 1:length(size(data))
+    MaxData = max(MaxData);
+    MinData = min(MinData);
+end
+
+normalised = x+(y-x)*(data-MinData)/( MaxData-MinData);
 
 end

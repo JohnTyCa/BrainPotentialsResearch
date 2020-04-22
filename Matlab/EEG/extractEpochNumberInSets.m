@@ -83,6 +83,10 @@
 % EpochDataBaseline                 -   Event epoch baseline. (DEFAULT: [])
 % ConditionColumn                   -   What column to use to extract 
 %                                       conditons. (DEFAULT: [])
+% CircularMean_AllEvent             -   Name of the variables for which to
+%                                       extract circular means,
+%                                       specifically for the AllEvent
+%                                       averages. (DEFAULT: {}]
 % 
 % ======================================================================= %
 % Outputs:
@@ -117,7 +121,9 @@
 % UPDATE HISTORY:
 %
 % 23/02/2019 (v1.0) -   V1.0 Created.
-%
+% 18/09/2019 (v1.1) -   Ability to extract circular means for AllEvent
+%                       averages.
+% 
 % ======================================================================= %
 
 function [epochN,trialN,trialAverage,eventAverage,ERPData] = extractEpochNumberInSets(folder,varargin)
@@ -127,7 +133,7 @@ epochN = []; trialN = []; trialAverage = []; eventAverage = []; ERPData = [];
 varInput = [];
 for iVar = 1:2:length(varargin)
     varInput = setfield(varInput, varargin{iVar}, varargin{iVar+1});
-end;
+end
 if ~isfield(varInput, 'TrialNumColumn'), varInput.TrialNumColumn = []; end
 if ~isfield(varInput, 'Conditions'), varInput.Conditions = []; end
 if ~isfield(varInput, 'TrialAverage'), varInput.TrialAverage = []; end
@@ -147,6 +153,7 @@ if ~isfield(varInput, 'EpochDataType'), varInput.EpochDataType = []; end
 if ~isfield(varInput, 'EpochDataEpoch'), varInput.EpochDataEpoch = []; end
 if ~isfield(varInput, 'EpochDataBaseline'), varInput.EpochDataBaseline = []; end
 if ~isfield(varInput, 'ConditionColumn'), varInput.ConditionColumn = []; end
+if ~isfield(varInput, 'CircularMean_AllEvent'), varInput.CircularMean_AllEvent = []; end
 
 FUNCLOOP = [];
 
@@ -363,7 +370,7 @@ for iFolder = 3:size(FUNCLOOP.folders,1)
             
             if varInput.ExtractMasterFileOnly
                     
-                FUNCFORLOOP2.currentEvents = EEG.event(extractEpochEvents(EEG));;
+                FUNCFORLOOP2.currentEvents = EEG.event(extractEpochEvents(EEG));
                 
                 for iCond = 1:length(varInput.Conditions)
                     
@@ -813,7 +820,19 @@ if ~varInput.ERPOnly
                         FUNCFORLOOP4.currentData = FUNCFORLOOP3.currentData(iSub,:);
                         FUNCFORLOOP4.currentData = table2cell(FUNCFORLOOP4.currentData);
                         FUNCFORLOOP4.currentData = cat(2,FUNCFORLOOP4.currentData{:});
-                        FUNCFORLOOP2.averagedData.(FUNCFORLOOP3.currentConds_Joined)(iSub,1) = nanmean(FUNCFORLOOP4.currentData);
+                        if any(contains(varInput.CircularMean_AllEvent,FUNCFORLOOP.currentVar))
+                            disp(['Calculating Circular Mean (CircStat ~ circ_mean) for ' FUNCFORLOOP.currentVar '(AllEvent Average)'])
+                            if any(isnan(FUNCFORLOOP4.currentData))
+                                disp('NaN values found, removing.')
+                            end
+                            if any(FUNCFORLOOP4.currentData > 2*pi)
+                                FUNCFORLOOP2.averagedData.(FUNCFORLOOP3.currentConds_Joined)(iSub,1) = rad2deg(circ_mean(deg2rad(FUNCFORLOOP4.currentData(~isnan(FUNCFORLOOP4.currentData)))'));
+                            else
+                                FUNCFORLOOP2.averagedData.(FUNCFORLOOP3.currentConds_Joined)(iSub,1) = circ_mean(FUNCFORLOOP4.currentData(~isnan(FUNCFORLOOP4.currentData))');
+                            end
+                        else
+                            FUNCFORLOOP2.averagedData.(FUNCFORLOOP3.currentConds_Joined)(iSub,1) = nanmean(FUNCFORLOOP4.currentData);
+                        end
                     end
                     
                     FUNCFORLOOP2.newConditions{iAverage} = strrep(FUNCFORLOOP3.currentConds_Joined,'_',' ');
@@ -825,18 +844,24 @@ if ~varInput.ERPOnly
                 FUNCFORLOOP2.plotData = table2array(FUNCFORLOOP2.averagedData);
                 FUNCFORLOOP2.plotData = permute(FUNCFORLOOP2.plotData,[2 1]);
                 
-                FUNCFORLOOP2.postHocStruct = postHocTesting(FUNCFORLOOP2.plotData);
-                postHocTesting_plotData(FUNCFORLOOP2.plotData,FUNCFORLOOP2.postHocStruct,'newFig',0);
-                
-                set(gca,'XTickLabels',FUNCFORLOOP2.newConditions);
-                xtickangle(45);
-                title(strrep(FUNCFORLOOP.currentVar,'_',' '));
-                
-                if ~isempty(varInput.SaveAndClose)
-                    FUNCFORLOOP2.currentSaveName = ['AllEventAverage_' FUNCFORLOOP.currentVar '_' 'PLOT_' nDigitString(iPlot,2)];
-                    FUNCLOOP.F1    = getframe(FUNCLOOP.FigH1);
-                    imwrite(FUNCLOOP.F1.cdata, [varInput.SaveAndClose FUNCFORLOOP2.currentSaveName '.bmp'], 'bmp')
-                    clf
+                if any(contains(varInput.CircularMean_AllEvent,FUNCFORLOOP.currentVar))
+                    disp(['Cannot do stats & plotting of circular means (' FUNCFORLOOP.currentVar ').'])
+                else
+                    
+                    FUNCFORLOOP2.postHocStruct = postHocTesting(FUNCFORLOOP2.plotData);
+                    postHocTesting_plotData(FUNCFORLOOP2.plotData,FUNCFORLOOP2.postHocStruct,'newFig',0);
+                    
+                    set(gca,'XTickLabels',FUNCFORLOOP2.newConditions);
+                    xtickangle(45);
+                    title(strrep(FUNCFORLOOP.currentVar,'_',' '));
+                    
+                    if ~isempty(varInput.SaveAndClose)
+                        FUNCFORLOOP2.currentSaveName = ['AllEventAverage_' FUNCFORLOOP.currentVar '_' 'PLOT_' nDigitString(iPlot,2)];
+                        FUNCLOOP.F1    = getframe(FUNCLOOP.FigH1);
+                        imwrite(FUNCLOOP.F1.cdata, [varInput.SaveAndClose FUNCFORLOOP2.currentSaveName '.bmp'], 'bmp')
+                        clf
+                    end
+                    
                 end
                 
             end

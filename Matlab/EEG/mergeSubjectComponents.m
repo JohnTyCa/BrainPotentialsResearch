@@ -12,7 +12,7 @@
 % components from the same subject will be summated to produce a single
 % component for each cluster, although this technically isn't an IC
 % anymore.
-% 
+%
 % ======================================================================= %
 % Required Inputs:
 % ======================================================================= %
@@ -24,8 +24,6 @@
 % ======================================================================= %
 % Optional Inputs:
 % ======================================================================= %
-%
-% 
 % 
 % ======================================================================= %
 % Outputs:
@@ -34,19 +32,19 @@
 % data      -   Merged data for desired cluster.
 % STUDY     -   EEGlab STUDY data structure.
 % ALLEEG    -   EEGLab ALLEEG data structure.
-% 
+%
 % ======================================================================= %
 % Example
 % ======================================================================= %
 %
 % [data,STUDY,ALLEEG] = mergeSubjectComponents(STUDY,ALLEEG,3)
-% 
+%
 % ======================================================================= %
 % Dependencies.
 % ======================================================================= %
-% 
+%
 % EEGLab (Toolbox)
-% 
+%
 % ======================================================================= %
 % UPDATE HISTORY:
 %
@@ -54,7 +52,9 @@
 %
 % ======================================================================= %
 
-function [data,STUDY,ALLEEG] = mergeSubjectComponents(STUDY,ALLEEG,cluster)
+function [ERPData,SpecData,STUDY,ALLEEG] = mergeSubjectComponents(STUDY,ALLEEG,cluster)
+
+% ERP Merging.
 
 plotERP = 0;
 if isfield(STUDY.cluster,'erpdata')
@@ -73,16 +73,42 @@ erpData  = STUDY.cluster(cluster).erpdata;
 erpTimes = STUDY.cluster(cluster).erptimes;
 setInds  = STUDY.cluster(cluster).setinds;
 
-% scan design
 for iCell = 1:length(setInds(:))
-    % scan subjects
     uniqueSubj = unique(setInds{iCell});
     for iSubj = 1:length(uniqueSubj)
         subjInd    = setInds{iCell} == uniqueSubj(iSubj);
         erpData2{iCell}(:,iSubj) = sum( erpData{iCell}(:,subjInd), 2);
-    end;
-end;
+    end
+end
 
-data = erpData2;
+ERPData = erpData2;
+
+% Spec Merging.
+
+plotSpec = 0;
+if isfield(STUDY.cluster,'spec')
+    if isempty(STUDY.cluster(cluster).erpdata)
+        plotSpec = 1;
+    end
+else
+    plotSpec = 1;
+end
+
+if plotSpec
+    STUDY = std_specplot(STUDY,ALLEEG,'clusters',cluster,'noplot','on');
+end
+
+specData  = STUDY.cluster(cluster).specdata;
+setInds  = STUDY.cluster(cluster).setinds;
+
+for iCell = 1:length(setInds(:))
+    uniqueSubj = unique(setInds{iCell});
+    for iSubj = 1:length(uniqueSubj)
+        subjInd = setInds{iCell} == uniqueSubj(iSubj);
+        specData2{iCell}(:,iSubj) = sum(specData{iCell}(:,subjInd), 2);
+    end
+end
+
+SpecData = specData2;
 
 end

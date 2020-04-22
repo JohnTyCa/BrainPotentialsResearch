@@ -60,13 +60,16 @@ function ERPGif(data,nElec,saveName,ELoc,varargin)
 varInput = [];
 for iVar = 1:2:length(varargin)
     varInput = setfield(varInput, varargin{iVar}, varargin{iVar+1});
-end;
+end
 if ~isfield(varInput, 'Intervals'), varInput.Intervals = 1; end
 if ~isfield(varInput, 'FPS'), varInput.FPS = 10; end
 if ~isfield(varInput, 'Baseline'), varInput.Baseline = 0; end
 if ~isfield(varInput, 'Title'), varInput.Title = 'Electrode Data'; end
 if ~isfield(varInput, 'PlotRange'), varInput.PlotRange = []; end
 if ~isfield(varInput, 'Gridscale'), varInput.Gridscale = 64; end
+if ~isfield(varInput, 'Times'), varInput.Times = []; end
+if ~isfield(varInput, 'TimeRound'), varInput.TimeRound = 0; end
+if ~isfield(varInput, 'FixScale'), varInput.FixScale = []; end
 
 if ndims(data) > 2; error('Data must be Two-Dimensional'); end
 
@@ -76,35 +79,38 @@ elseif size(data,1) ~= nElec
     error('Data does not have dimension with size of ''nElec''')
 end
 
-timePoints_All = size(data,2);
-timeSync_All = varInput.Baseline:(timePoints_All - abs(varInput.Baseline))-1;
-timeInterval_All = 1:timePoints_All;
-
-if ~isempty(varInput.PlotRange)
-    startRange = nearest(timeSync_All,varInput.PlotRange(1));
-    endRange = nearest(timeSync_All,varInput.PlotRange(end));
-    timeInterval_Extract = startRange:endRange;
-    timeSync_Extract = timeSync_All(timeInterval_Extract);
-else
-    timeInterval_Extract = timeInterval_All;
-    timeSync_Extract = timeSync_All;
+if isempty(varInput.Times)
+    varInput.Times = 1:size(data,2);
 end
 
-pointsToExtract = timeInterval_Extract(1):varInput.Intervals:timeInterval_Extract(end);
+if isempty(varInput.PlotRange)
+    varInput.PlotRange = 1:size(varInput.Times,2);
+end
+
+DATA = [];
+
+DATA.PlotRangeSync = [varInput.Times(nearest(varInput.Times,varInput.PlotRange(1))) varInput.Times(nearest(varInput.Times,varInput.PlotRange(end)))];
+DATA.PlotRange = [nearest(varInput.Times,DATA.PlotRangeSync(1)) nearest(varInput.Times,DATA.PlotRangeSync(end))];
+
+DATA.PlotRangeSync_Intervals = DATA.PlotRangeSync(1):varInput.Intervals:DATA.PlotRangeSync(end);
+for iTime = 1:length(DATA.PlotRangeSync_Intervals)
+    DATA.PlotRangeSync_Intervals(iTime) = varInput.Times(nearest(varInput.Times,DATA.PlotRangeSync_Intervals(iTime)));
+    DATA.PlotRange_Intervals(iTime) = nearest(varInput.Times,DATA.PlotRangeSync_Intervals(iTime));
+end
 
 [saveDir,saveFile,saveEx] = fileparts(saveName);
-
 if ~exist(saveDir); mkdir(saveDir); end
 
 firstPointComplete = 0;
 figure;
-for iTime = pointsToExtract
+for iTime = DATA.PlotRange_Intervals
     
     currentPlot = data(:,iTime);
-    currentTime = timeSync_All(iTime);
+    currentTime = varInput.Times(iTime);
     
-    figHandle = topoplot(currentPlot,ELoc,'gridscale', varInput.Gridscale);
-    title([varInput.Title '; T' num2str(currentTime)])
+    figHandle = topoplot(currentPlot,ELoc,'gridscale', varInput.Gridscale, 'maplimits',[-varInput.FixScale varInput.FixScale]);
+    titleHandle = title([varInput.Title '; T' num2str(round(currentTime,varInput.TimeRound))])
+    
     set(gcf,'color','w');
 
     frame = getframe(gcf); 
